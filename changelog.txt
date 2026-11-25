@@ -62,10 +62,11 @@ making a copy of a sheet.
      again, and picking one jumps to the next empty slot
    - The title is now a link that starts over: it clears the saved setup
      and opens the clean page (the Tier Maker passcode is kept)
-   - Player list now shows each player's tier (worked out from their
-     MMR and the tier ranges), their Base MMR (true MMR), and Effective
-     MMR when they would be promoted into the selected tier. The Eff.
-     column appears once a tier is picked; Show MMR off hides both
+   - Player list shows each player's name and tier (Contracts column J).
+     Tier Maker has no tier column, so its list shows names only
+   - Base MMR (true MMR) and Eff. (Effective MMR, only for players
+     promoted into the selected tier) are two columns beside Played
+     (Lineups) or W-L (Tryouts) in the Players box. Show MMR off hides both
    - Light and dark themes redone for contrast and comfort, with a
      "Theme" button (Auto, Light, Dark) that is remembered. Native
      dropdowns, checkboxes and scrollbars follow the theme too

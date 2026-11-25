@@ -47,7 +47,7 @@ nav button{border-radius:8px 8px 0 0;border-bottom:0;padding:7px 14px;background
 nav button.on{background:var(--panel);color:var(--ink);font-weight:600;border-color:var(--line)}
 main{padding:0 16px 40px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:0 8px 8px 8px;padding:14px}
-.layout{display:grid;grid-template-columns:minmax(260px,330px) minmax(0,1fr);gap:18px;align-items:start}
+.layout{display:grid;grid-template-columns:minmax(300px,370px) minmax(0,1fr);gap:18px;align-items:start}
 footer{text-align:center;color:var(--muted);font-size:12.5px;padding:2px 16px 28px}
 footer b{color:var(--ink)}
 .layout>div{min-width:0}
@@ -77,13 +77,13 @@ td.c,th.c{text-align:center}
 .banner.warn{background:var(--warnBg);color:var(--warn)}
 .banner.ok{background:var(--okBg);color:var(--ok)}
 #checks{margin:10px 16px 0}
-.prow{display:grid;grid-template-columns:18px minmax(0,1fr) 62px 44px;gap:6px;align-items:center;margin-bottom:5px}
-.prow.t{grid-template-columns:18px minmax(0,1fr) 62px 52px}
+.prow{display:grid;grid-template-columns:18px minmax(0,1fr) 50px 50px 46px;gap:6px;align-items:center;margin-bottom:5px}
+.prow.t{grid-template-columns:18px minmax(0,1fr) 50px 50px 50px}
 .prow .i{color:var(--muted);font-size:12px;text-align:right}
-.prow .m,.prow .c{text-align:right;font-variant-numeric:tabular-nums;padding:4px 6px;border-radius:4px}
+.prow .b,.prow .e,.prow .c{text-align:right;font-variant-numeric:tabular-nums;padding:4px 6px;border-radius:4px}
 .prow input.err{border-color:var(--bad);background:var(--badBg)}
-.phead{display:grid;grid-template-columns:18px minmax(0,1fr) 62px 44px;gap:6px;font-size:12px;color:var(--muted);margin-bottom:4px}
-.phead.t{grid-template-columns:18px minmax(0,1fr) 62px 52px}
+.phead{display:grid;grid-template-columns:18px minmax(0,1fr) 50px 50px 46px;gap:6px;font-size:12px;color:var(--muted);margin-bottom:4px}
+.phead.t{grid-template-columns:18px minmax(0,1fr) 50px 50px 50px}
 .phead span:nth-child(n+3){text-align:right}
 .pmsg{font-size:11px;color:var(--bad);margin:-3px 0 5px 24px}
 .pmsg.w{color:var(--warn)}
@@ -111,19 +111,15 @@ details.help li{margin-bottom:4px}
 .hidden{display:none}
 textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--input);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px;min-height:90px}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--head);color:#fff;border:1px solid rgba(255,255,255,.2);padding:8px 14px;border-radius:6px;font-size:13px;z-index:50}
-.sug{position:fixed;z-index:60;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:280px;overflow:auto;min-width:240px}
-.sug .si,.sug .sh{display:grid;grid-template-columns:minmax(0,1fr) 104px;gap:10px;padding:6px 12px;align-items:center}
-.sug.m .si,.sug.m .sh{grid-template-columns:minmax(0,1fr) 104px 48px}
-.sug.m.t .si,.sug.m.t .sh{grid-template-columns:minmax(0,1fr) 104px 48px 48px}
+.sug{position:fixed;z-index:60;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:280px;overflow:auto;min-width:200px}
+.sug .si,.sug .sh{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:6px 12px;align-items:center}
+.sug.t .si,.sug.t .sh{grid-template-columns:minmax(0,1fr) 120px}
 .sug .sh{position:sticky;top:0;background:var(--thead);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;border-bottom:1px solid var(--line)}
 .sug .si{cursor:pointer}
 .sug .si.on,.sug .si:hover{background:var(--hover)}
 .sug .si.on{box-shadow:inset 3px 0 0 var(--accent)}
 .sug .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sug .tr{color:var(--muted);font-size:12px;white-space:nowrap}
-.sug .r{text-align:right;font-variant-numeric:tabular-nums}
-.sug .si .r{color:var(--muted);font-size:12.5px}
-.sug .si .r.e{color:var(--warn);font-weight:700}
+.sug .tr{color:var(--muted);font-size:12.5px;white-space:nowrap}
 .sug .none{padding:8px 12px;color:var(--muted);font-size:12px}
 .lock{border:1px dashed var(--warn);background:var(--warnBg);border-radius:6px;padding:8px;margin-top:8px}
 .lock .row input{flex:1;min-width:120px}
@@ -270,12 +266,6 @@ try {
 } catch(e) {}
 
 // ---------- data ----------
-function tierFor(d, b){
-  if (!isNum(b)) return '';
-  var ts = d.tiers.filter(function(t){ return isNum(t.min); }).sort(function(a,c){ return c.min-a.min; });
-  for (var i=0;i<ts.length;i++) if (b >= ts[i].min) return ts[i].name;
-  return ts.length ? ts[ts.length-1].name : '';
-}
 function index(raw){
   var d = {src:raw.src, builtAt:raw.builtAt, stale:!!raw.stale, error:raw.error||'', colors:raw.colors||{}};
   // a real tier has a min, max or cap; this drops summary rows such as "Totals"
@@ -283,8 +273,8 @@ function index(raw){
     .map(function(t){ return {name:t[0], min:t[1], max:t[2], cap:t[3], pro:t[4]}; });
   d.tierNames = d.tiers.map(function(t){ return t.name; });
   d.tierBy = {}; d.tiers.forEach(function(t){ d.tierBy[t.name]=t; });
-  d.players = raw.players.map(function(p){ return {n:p[0], b:p[1], st:p[2]||'', tm:p[3]||''}; });
-  d.players.forEach(function(p){ p.tr = tierFor(d, p.b); });
+  d.players = raw.players.map(function(p){ return {n:p[0], b:p[1], st:p[2]||'', tm:p[3]||'', tr:String(p[4]||'').trim()}; });
+  d.hasTier = d.players.some(function(p){ return p.tr; });
   d.by = {}; d.lower = {};
   d.players.forEach(function(p){ d.by[p.n]=p; var k=p.n.toLowerCase(); if (!d.lower[k]) d.lower[k]=p; });
   d.issues = [];
@@ -428,12 +418,12 @@ function renderL(){
     '<span class="k">Show MMR</span><span><input type="checkbox" data-k="L.m"'+(S.L.m?' checked':'')+'></span>'+
   '</div></div>';
   // players
-  h += '<div class="box"><h3>Players <span class="note">(5–7)</span></h3><div class="phead"><span></span><span>Player</span><span>MMR</span><span>Played</span></div>';
+  h += '<div class="box"><h3>Players <span class="note">(5–7)</span></h3><div class="phead"><span></span><span>Player</span><span title="True MMR">Base</span><span title="Effective MMR: what a promoted player counts as in the selected tier">Eff.</span><span>Played</span></div>';
   for (var i=1;i<=SLOTS;i++){
     var nm = S.L.p[i-1].trim(), r = nm && S.L.m ? mmr('c', S.L.t, nm) : null, known = !nm || d.by[nm];
     var c = nm ? (counts[i]||0) : '';
     h += '<div class="prow"><span class="i">'+i+'</span><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-tabk="L" data-slot="'+i+'" value="'+esc(S.L.p[i-1])+'" placeholder="Player '+i+'">'+
-      '<span class="m'+(r&&r.promo?' promo':'')+'" title="'+(r&&r.promo?'Promoted from a lower tier (base '+r.base+')':'')+'">'+(r?r.v:'')+'</span>'+
+      '<span class="b">'+(r?r.base:'')+'</span><span class="e'+(r&&r.promo?' promo':'')+'" title="'+(r&&r.promo?'Promoted from a lower tier: counts as '+r.v+' instead of '+r.base:'')+'">'+(r&&r.promo?r.v:'')+'</span>'+
       '<span class="c'+(nm&&c<maxC?' behind':'')+'">'+c+'</span></div>';
     if (!known) h += '<div class="pmsg w">Not in Contracts (MMR blank)</div>';
   }
@@ -519,12 +509,12 @@ function renderT(){
   }
   h += '</div>';
 
-  h += '<div class="box"><h3>Players <span class="note">(6–7)</span></h3><div class="phead t"><span></span><span>Player</span><span>MMR</span><span>W–L</span></div>';
+  h += '<div class="box"><h3>Players <span class="note">(6–7)</span></h3><div class="phead t"><span></span><span>Player</span><span title="True MMR">Base</span><span title="Effective MMR: what a promoted player counts as in the selected tier">Eff.</span><span>W–L</span></div>';
   for (var i=1;i<=SLOTS;i++){
     var nm = S.T.p[i-1].trim(), r = nm && S.T.m && d ? mmr(src, S.T.t, nm) : null, known = !nm || !d || d.by[nm];
     var rc = rec[i] || {w:0,l:0};
     h += '<div class="prow t"><span class="i">'+i+'</span><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-tabk="T" data-slot="'+i+'" value="'+esc(S.T.p[i-1])+'" placeholder="Player '+i+'">'+
-      '<span class="m'+(r&&r.promo?' promo':'')+'" title="'+(r&&r.promo?'Promoted from a lower tier (base '+r.base+')':'')+'">'+(r?r.v:'')+'</span>'+
+      '<span class="b">'+(r?r.base:'')+'</span><span class="e'+(r&&r.promo?' promo':'')+'" title="'+(r&&r.promo?'Promoted from a lower tier: counts as '+r.v+' instead of '+r.base:'')+'">'+(r&&r.promo?r.v:'')+'</span>'+
       '<span class="c">'+(nm?rc.w+'–'+rc.l:'')+'</span></div>';
     if (!known) h += '<div class="pmsg w">Not in '+(src==='tm'?'Tier Maker':'Contracts')+' (MMR blank)</div>';
   }
@@ -593,7 +583,7 @@ function sugHide(){ if (sug.el) sug.el.className='sug hidden'; sug.input=null; s
 function sugPos(){
   var el = sug.el, inp = sug.input; if (!el || !inp) return;
   var r = inp.getBoundingClientRect();
-  el.style.width = Math.min(Math.max(r.width, 380), window.innerWidth-12)+'px';
+  el.style.width = Math.min(Math.max(r.width, 300), window.innerWidth-12)+'px';
   el.style.left = Math.min(r.left, Math.max(0, window.innerWidth - el.offsetWidth - 4))+'px';
   var below = window.innerHeight - r.bottom, h = el.offsetHeight;
   el.style.top = (below < Math.min(h, 220) && r.top > below ? Math.max(4, r.top - h - 2) : r.bottom + 2)+'px';
@@ -612,17 +602,14 @@ function sugShow(input, unfiltered){
   });
   var all = starts.concat(has);
   sug.input = input; sug.items = all.slice(0, 80); sug.at = q && sug.items.length ? 0 : -1;
-  var showM = !!S[k].m, selT = S[k].t, hasT = !!(selT && d.tierBy[selT]);
-  var el = sugEl();
-  var head = '<div class="sh"><span>Player</span><span>Tier</span>'+(showM?'<span class="r" title="True (base) MMR">Base</span>'+(hasT?'<span class="r" title="Effective MMR: what a player counts as in '+esc(selT)+' when promoted from a lower tier">Eff.</span>':''):'')+'</div>';
+  var el = sugEl(), showT = !!d.hasTier;
+  var head = '<div class="sh"><span>Player</span>'+(showT?'<span>Tier</span>':'')+'</div>';
   el.innerHTML = sug.items.length
     ? head + sug.items.map(function(p,n){
-        var r = showM && hasT ? mmr(src, selT, p.n) : null;
-        return '<div class="si'+(n===sug.at?' on':'')+'" data-i="'+n+'"><span class="nm">'+esc(p.n)+'</span><span class="tr">'+(p.tr?chip(p.tr)+esc(p.tr):'')+'</span>'+
-          (showM?'<span class="r">'+(isNum(p.b)?p.b:'')+'</span>'+(hasT?'<span class="r e">'+(r&&r.promo?r.v:'')+'</span>':''):'')+'</div>'; }).join('') +
+        return '<div class="si'+(n===sug.at?' on':'')+'" data-i="'+n+'"><span class="nm">'+esc(p.n)+'</span>'+(showT?'<span class="tr">'+(p.tr?chip(p.tr)+esc(p.tr):'')+'</span>':'')+'</div>'; }).join('') +
         (all.length>sug.items.length ? '<div class="none">'+(all.length-sug.items.length)+' more, keep typing…</div>' : '')
     : '<div class="none">No match. It will be used as typed'+(k==='L'?' (no MMR)':'')+'.</div>';
-  el.className = 'sug'+(showM?' m':'')+(showM&&hasT?' t':''); el.scrollTop = 0; sugPos();
+  el.className = 'sug'+(showT?' t':''); el.scrollTop = 0; sugPos();
 }
 function sugMove(dir){
   if (!sug.items.length) return;

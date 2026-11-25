@@ -45,7 +45,8 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 
 ### Player list
 - Type in a player slot to filter, then click or press Enter (arrow keys and Esc work too).
-- Each row shows the player's **tier** (from their MMR), **Base** MMR (true MMR) and, once a tier is selected, **Eff.** (the MMR they count at if promoted into that tier).
+- Each row shows the player's name and **tier** (Contracts column J). Tier Maker has no tier column, so it shows names only.
+- In the Players box, each player has **Base** (true MMR) and **Eff.** (the MMR they count at if promoted into the selected tier; blank if not promoted) beside Played (Lineups) or W–L (Tryouts).
 - Show MMR off hides the numbers.
 
 ### Theme
@@ -65,7 +66,7 @@ Tier Maker sheet ┘     60 s cache, passcode for Tier Maker     all logic runs 
 
 - **`index.html`**: the whole app (one file). Schedules, MMR rules, cap checks and saving all run in the visitor's browser. `API_URL` near the top points at the Apps Script.
 - **Apps Script** (not in this repo; stored in the RSC Admin project as `Code.gs`): a standalone script deployed as a web app (*Execute as: Me*, *Who has access: Anyone*). It reads:
-  - Contracts → `Contracts` (players), `Tiers` (min/max/cap), `Count/Keeper` (promoted MMR)
+  - Contracts → `Contracts` (players, with tier in column J), `Tiers` (min/max/cap), `Count/Keeper` (promoted MMR)
   - Tier Maker → `GM Tier List` (players, tier table, promoted MMR)
 
   Tier Maker data is returned only when the passcode matches the script property `TM_KEY`.
