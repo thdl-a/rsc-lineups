@@ -70,7 +70,8 @@ making a copy of a sheet.
    - Light and dark themes redone for contrast and comfort, with a
      "Theme" button (Auto, Light, Dark) that is remembered. Native
      dropdowns, checkboxes and scrollbars follow the theme too
-   - Footer: "Found a bug? DM w.ntr on Discord"
+   - Footer: "Found a bug? DM w.ntr on Discord" and "Enjoying it so far?
+     Send a 🍪"
    - Copy link is much shorter (about a third to a fifth of the old
      length, e.g. a 7-player Lineups setup is about 75 characters).
      Names with any punctuation are handled, chat apps that trim a
