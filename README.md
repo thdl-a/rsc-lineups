@@ -53,6 +53,7 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 - The **Theme** button cycles Auto (follows your device), Light and Dark. It is remembered per browser.
 
 ### Header
+- The title shows the current season, e.g. **(S27)**. It comes from the Contracts sheet's title, so renaming or replacing the sheet for S28 updates it automatically.
 - **Status pill**: player count. Click it for each tier's min, max, cap and promoted MMR, plus any data notes.
 - **Refresh** re-reads the sheets. The page also refreshes every 5 minutes while in use.
 

@@ -154,7 +154,7 @@ function buildContracts_() {
     .map(function (r) { return [num_(r[0]), String(r[1]).trim(), num_(r[3])]; });
   addPromoted_(tiers, kRows);
 
-  return finish_('c', players, tiers);
+  return finish_('c', players, tiers, season_(ss));
 }
 
 function buildTierMaker_() {
@@ -171,7 +171,7 @@ function buildTierMaker_() {
   });
   const tiers = readTiers_(sh.getRange('I2:S21').getValues());
   addPromoted_(tiers, kRows);
-  return finish_('tm', players, tiers);
+  return finish_('tm', players, tiers, season_(ss));
 }
 
 // Tier table rows (Contracts Tiers A:K or Tier Maker I:S share the same columns)
@@ -209,7 +209,7 @@ function addPromoted_(tiers, kRows) {
   });
 }
 
-function finish_(src, players, tiers) {
+function finish_(src, players, tiers, season) {
   players.sort(function (a, b) { return a[0].localeCompare(b[0], undefined, { sensitivity: 'base' }); });
   const seen = {};
   const unique = players.filter(function (p) {
@@ -218,7 +218,14 @@ function finish_(src, players, tiers) {
     return true;
   });
   if (!unique.length) throw new Error('No players found (is the sheet loaded?)');
-  return { v: 1, src: src, builtAt: Date.now(), tiers: tiers, players: unique, colors: TIER_COLORS };
+  return { v: 1, src: src, season: season, builtAt: Date.now(), tiers: tiers, players: unique, colors: TIER_COLORS };
+}
+
+// Season label from the spreadsheet's title, e.g. "S27 RSC 3s Contracts" -> "S27"
+// (also understands "Season 27"). Blank if the title has no season.
+function season_(ss) {
+  const m = String(ss.getName()).match(/\b(?:S|Season\s?)(\d{1,3})\b/i);
+  return m ? 'S' + m[1] : '';
 }
 
 function tab_(ss, name) {

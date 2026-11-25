@@ -70,6 +70,9 @@ making a copy of a sheet.
    - Light and dark themes redone for contrast and comfort, with a
      "Theme" button (Auto, Light, Dark) that is remembered. Native
      dropdowns, checkboxes and scrollbars follow the theme too
+   - The header shows the season in parentheses, e.g. "RSC Lineups &
+     Tryouts (S27)", read from the Contracts sheet's title (the first
+     "S" or "Season" number in it)
    - Footer: "Found a bug? DM w.ntr on Discord" and "Enjoying it so far?
      Send a 🍪"
    - Copy link is much shorter (about a third to a fifth of the old
