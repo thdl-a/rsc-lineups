@@ -71,6 +71,10 @@ making a copy of a sheet.
      "Theme" button (Auto, Light, Dark) that is remembered. Native
      dropdowns, checkboxes and scrollbars follow the theme too
    - Footer: "Found a bug? DM w.ntr on Discord"
+   - Copy link is much shorter (about a third to a fifth of the old
+     length, e.g. a 7-player Lineups setup is about 75 characters).
+     Names with any punctuation are handled, chat apps that trim a
+     trailing . or _ still work, and older long links still open
    - A "Totals" row in the Contracts Tiers tab was read as a tier. Summary
      rows with no min, max or cap are now ignored
 

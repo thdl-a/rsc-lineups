@@ -209,24 +209,56 @@ function sanitize(){
   if (['7','14','70'].indexOf(S.T.sch)<0) S.T.sch='7';
   if (S.tab!=='T') S.tab='L';
 }
-function encodeState(){
-  var j = JSON.stringify(S);
-  return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+// Compact share link: #c=tab_tier_players_showMMR_played_tryTier_src_sched_tryPlayers_showMMR_wins6_wins7_wins14_wins70
+// Names are percent-encoded (every punctuation mark too) so "_" and "." are safe separators.
+var SIGS = ['6','7|7','7|14','7|70'];
+function ue(x){ return encodeURIComponent(x).replace(/[-_.!~*'()]/g, function(c){ return '%'+c.charCodeAt(0).toString(16).toUpperCase(); }); }
+function ul(a){ var o = a.map(ue); while (o.length && !o[o.length-1]) o.pop(); return o.join('.'); }
+function dl(s, n){ var o = s ? s.split('.').map(function(x){ return decodeURIComponent(x); }) : []; while (o.length<n) o.push(''); return o.slice(0, n); }
+function encodeCompact(){
+  var wins = SIGS.map(function(sig){
+    var W = S.T.w[sig] || {}, max = 0, k, q = '';
+    for (k in W) max = Math.max(max, +k);
+    for (var i=1;i<=max;i++) q += W[i]==='b' ? 'b' : W[i]==='o' ? 'o' : 'x';
+    return q;
+  });
+  var f = [S.tab==='T' ? 'T' : 'L', ue(S.L.t), ul(S.L.p), S.L.m ? '' : '0', S.L.pl.map(function(x){ return String(x).replace(/\D/g,''); }).join('.'),
+    ue(S.T.t), S.T.src==='tm' ? 'm' : '', S.T.sch==='7' ? '' : S.T.sch, ul(S.T.p), S.T.m ? '' : '0'].concat(wins);
+  while (f.length && !f[f.length-1]) f.pop();
+  var out = f.join('_');
+  return out==='L' ? '' : out;
 }
+function decodeCompact(str){
+  var f = str.split('_'), g = function(i){ return f[i] || ''; };
+  var P = {tab:g(0)==='T' ? 'T' : 'L',
+    L:{t:decodeURIComponent(g(1)), p:dl(g(2), SLOTS), m:g(3)!=='0', pl:g(4) ? g(4).split('.').filter(Boolean) : []},
+    T:{t:decodeURIComponent(g(5)), src:g(6)==='m' ? 'tm' : 'c', sch:g(7) || '7', p:dl(g(8), SLOTS), m:g(9)!=='0', w:{}}};
+  SIGS.forEach(function(sig, i){
+    var q = g(10+i), W = {}, any = false;
+    for (var k=0;k<q.length;k++) if (q[k]==='b' || q[k]==='o') { W[k+1] = q[k]; any = true; }
+    if (any) P.T.w[sig] = W;
+  });
+  return P;
+}
+// older long links (#s=...) still open
 function decodeState(s){
   s = s.replace(/-/g,'+').replace(/_/g,'/'); while (s.length%4) s+='=';
   return JSON.parse(decodeURIComponent(escape(atob(s))));
 }
 (function initState(){
   var fromHash = false;
-  try { var m = location.hash.match(/[#&]s=([^&]+)/); if (m) { merge(S, decodeState(m[1])); fromHash = true; } } catch(e) {}
+  try {
+    var mc = location.hash.match(/[#&]c=([^&]*)/), ms = location.hash.match(/[#&]s=([^&]+)/);
+    if (mc) { merge(S, decodeCompact(mc[1])); fromHash = true; }
+    else if (ms) { merge(S, decodeState(ms[1])); fromHash = true; }
+  } catch(e) {}
   if (!fromHash) { try { merge(S, JSON.parse(localStorage.getItem('rsclt') || 'null')); } catch(e) {} }
   try { TM_KEY = localStorage.getItem('rsclt_key') || ''; } catch(e) {}
   sanitize();
 })();
 function persist(){
   try { localStorage.setItem('rsclt', JSON.stringify(S)); } catch(e) {}
-  try { history.replaceState(null, '', location.pathname + location.search + '#s=' + encodeState()); } catch(e) {}
+  try { var c = encodeCompact(); history.replaceState(null, '', location.pathname + location.search + (c ? '#c=' + c : '')); } catch(e) {}
 }
 
 // ---------- helpers ----------

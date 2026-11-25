@@ -40,7 +40,7 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 
 ### Saving and sharing
 - Your setup saves automatically in your browser.
-- **🔗 Copy link** copies a link that opens your exact setup (players, tier, played games, wins). The Tier Maker passcode is never included.
+- **🔗 Copy link** copies a short link that opens your exact setup (players, tier, played games, wins). The Tier Maker passcode is never included. Older long links still work.
 - **Copy for Discord** copies a text summary of lineups or tryout results.
 
 ### Player list
