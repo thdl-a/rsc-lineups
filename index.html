@@ -97,6 +97,11 @@ details.help li{margin-bottom:4px}
 .hidden{display:none}
 textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--input);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px;min-height:90px}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 14px;border-radius:6px;font-size:13px;z-index:50}
+.sug{position:fixed;z-index:60;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.28);max-height:260px;overflow:auto;min-width:240px}
+.sug .si{display:flex;justify-content:space-between;gap:12px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.sug .si.on,.sug .si:hover{background:var(--input)}
+.sug .si .s{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.sug .none{padding:8px 10px;color:var(--muted);font-size:12px}
 .lock{border:1px dashed var(--warn);background:var(--warnBg);border-radius:6px;padding:8px;margin-top:8px}
 .lock .row input{flex:1;min-width:120px}
 </style>
@@ -114,8 +119,6 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
 <div id="checks" class="hidden"></div>
 <nav id="tabs"></nav>
 <main><div class="panel" id="view"><div class="loading">Loading players…</div></div></main>
-<datalist id="dl_c"></datalist>
-<datalist id="dl_tm"></datalist>
 
 <script>
 (function(){
@@ -229,7 +232,9 @@ function copyText(txt){
 // ---------- data ----------
 function index(raw){
   var d = {src:raw.src, builtAt:raw.builtAt, stale:!!raw.stale, error:raw.error||'', colors:raw.colors||{}};
-  d.tiers = raw.tiers.map(function(t){ return {name:t[0], min:t[1], max:t[2], cap:t[3], pro:t[4]}; });
+  // a real tier has a min, max or cap; this drops summary rows such as "Totals"
+  d.tiers = raw.tiers.filter(function(t){ return isNum(t[1]) || isNum(t[2]) || isNum(t[3]); })
+    .map(function(t){ return {name:t[0], min:t[1], max:t[2], cap:t[3], pro:t[4]}; });
   d.tierNames = d.tiers.map(function(t){ return t.name; });
   d.tierBy = {}; d.tiers.forEach(function(t){ d.tierBy[t.name]=t; });
   d.players = raw.players.map(function(p){ return {n:p[0], b:p[1], st:p[2]||'', tm:p[3]||''}; });
@@ -241,13 +246,6 @@ function index(raw){
     if (!isNum(t.pro)) d.issues.push(t.name+': no promoted MMR (Keeper round) found, promoted players use the tier min');
   });
   return d;
-}
-function fillDatalist(src){
-  var d = DATA[src]; if (!d) return;
-  $('dl_'+src).innerHTML = d.players.map(function(p){
-    var lab = [p.st, p.tm].filter(Boolean).join(' · ');
-    return '<option value="'+esc(p.n)+'"'+(lab?' label="'+esc(lab)+'"':'')+'></option>';
-  }).join('');
 }
 function apiUrl(src, force){
   var u = API_URL + '?action=data' + (src==='tm' ? '&src=tm&key='+encodeURIComponent(TM_KEY) : '') + (force?'&force=1':'') + '&t=' + Date.now();
@@ -275,7 +273,7 @@ function load(src, force){
     DATA[src] = index(raw);
     if (src==='tm') { tmMsg=''; }
     if (src==='c') lastLoad = Date.now();
-    fillDatalist(src); fixState(); renderHeader(); renderTabs(); render();
+    fixState(); renderHeader(); renderTabs(); render();
   }).catch(function(err){
     loading[src] = false; setBusy();
     var msg = esc(err && err.message || err);
@@ -387,7 +385,7 @@ function renderL(){
   for (var i=1;i<=SLOTS;i++){
     var nm = S.L.p[i-1].trim(), r = nm && S.L.m ? mmr('c', S.L.t, nm) : null, known = !nm || d.by[nm];
     var c = nm ? (counts[i]||0) : '';
-    h += '<div class="prow"><span class="i">'+i+'</span><input type="text" list="dl_c" autocomplete="off" data-tabk="L" data-slot="'+i+'" value="'+esc(S.L.p[i-1])+'" placeholder="Player '+i+'">'+
+    h += '<div class="prow"><span class="i">'+i+'</span><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-tabk="L" data-slot="'+i+'" value="'+esc(S.L.p[i-1])+'" placeholder="Player '+i+'">'+
       '<span class="m'+(r&&r.promo?' promo':'')+'" title="'+(r&&r.promo?'Promoted from a lower tier (base '+r.base+')':'')+'">'+(r?r.v:'')+'</span>'+
       '<span class="c'+(nm&&c<maxC?' behind':'')+'">'+c+'</span></div>';
     if (!known) h += '<div class="pmsg w">Not in Contracts (MMR blank)</div>';
@@ -478,7 +476,7 @@ function renderT(){
   for (var i=1;i<=SLOTS;i++){
     var nm = S.T.p[i-1].trim(), r = nm && S.T.m && d ? mmr(src, S.T.t, nm) : null, known = !nm || !d || d.by[nm];
     var rc = rec[i] || {w:0,l:0};
-    h += '<div class="prow t"><span class="i">'+i+'</span><input type="text" list="dl_'+src+'" autocomplete="off" data-tabk="T" data-slot="'+i+'" value="'+esc(S.T.p[i-1])+'" placeholder="Player '+i+'">'+
+    h += '<div class="prow t"><span class="i">'+i+'</span><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-tabk="T" data-slot="'+i+'" value="'+esc(S.T.p[i-1])+'" placeholder="Player '+i+'">'+
       '<span class="m'+(r&&r.promo?' promo':'')+'" title="'+(r&&r.promo?'Promoted from a lower tier (base '+r.base+')':'')+'">'+(r?r.v:'')+'</span>'+
       '<span class="c">'+(nm?rc.w+'–'+rc.l:'')+'</span></div>';
     if (!known) h += '<div class="pmsg w">Not in '+(src==='tm'?'Tier Maker':'Contracts')+' (MMR blank)</div>';
@@ -534,16 +532,93 @@ function copyT(){
   copyText(lines.join('\n'));
 }
 
+// ---------- player list (custom dropdown) ----------
+function commitSlot(k, i, raw){
+  var src = k==='L' ? 'c' : S.T.src;
+  var v = canon(src, raw), old = S[k].p[i-1].trim();
+  S[k].p[i-1] = v;
+  // a different player in this slot: their old played lineups no longer apply
+  if (k==='L' && v!==old) S.L.pl = S.L.pl.filter(function(key){ return key.indexOf(String(i))<0; });
+}
+var sug = {el:null, input:null, items:[], at:-1};
+function sugEl(){ if (!sug.el) { var d=document.createElement('div'); d.className='sug hidden'; document.body.appendChild(d); sug.el=d; } return sug.el; }
+function sugHide(){ if (sug.el) sug.el.className='sug hidden'; sug.input=null; sug.items=[]; sug.at=-1; }
+function sugPos(){
+  var el = sug.el, inp = sug.input; if (!el || !inp) return;
+  var r = inp.getBoundingClientRect();
+  el.style.width = Math.max(r.width, 260)+'px';
+  el.style.left = Math.min(r.left, Math.max(0, window.innerWidth - el.offsetWidth - 4))+'px';
+  var below = window.innerHeight - r.bottom, h = el.offsetHeight;
+  el.style.top = (below < Math.min(h, 220) && r.top > below ? Math.max(4, r.top - h - 2) : r.bottom + 2)+'px';
+}
+function sugShow(input, unfiltered){
+  var k = input.dataset.tabk, i = +input.dataset.slot, d = DATA[k==='L' ? 'c' : S.T.src];
+  if (!d) { sugHide(); return; }
+  var q = input.value.trim().toLowerCase();
+  if (unfiltered || d.by[input.value.trim()]) q = unfiltered ? '' : q;
+  var used = {}; S[k].p.forEach(function(n,j){ if (j!==i-1 && n.trim()) used[n.trim()] = 1; });
+  var starts = [], has = [];
+  d.players.forEach(function(p){
+    if (used[p.n]) return;
+    var l = p.n.toLowerCase();
+    if (!q || l.indexOf(q)===0) starts.push(p); else if (l.indexOf(q)>0) has.push(p);
+  });
+  var all = starts.concat(has);
+  sug.input = input; sug.items = all.slice(0, 80); sug.at = q && sug.items.length ? 0 : -1;
+  var el = sugEl();
+  el.innerHTML = sug.items.length
+    ? sug.items.map(function(p,n){ var lab=[p.st,p.tm].filter(Boolean).join(' · ');
+        return '<div class="si'+(n===sug.at?' on':'')+'" data-i="'+n+'"><span>'+esc(p.n)+'</span><span class="s">'+esc(lab)+'</span></div>'; }).join('') +
+        (all.length>sug.items.length ? '<div class="none">'+(all.length-sug.items.length)+' more, keep typing…</div>' : '')
+    : '<div class="none">No match. It will be used as typed'+(k==='L'?' (no MMR)':'')+'.</div>';
+  el.className = 'sug'; el.scrollTop = 0; sugPos();
+}
+function sugMove(dir){
+  if (!sug.items.length) return;
+  sug.at = (sug.at + dir + sug.items.length) % sug.items.length;
+  var rows = sug.el.querySelectorAll('.si');
+  for (var n=0;n<rows.length;n++) rows[n].classList.toggle('on', n===sug.at);
+  if (rows[sug.at]) rows[sug.at].scrollIntoView({block:'nearest'});
+}
+function sugPick(n){
+  var p = sug.items[n], inp = sug.input; if (!p || !inp) return;
+  var k = inp.dataset.tabk, i = +inp.dataset.slot;
+  inp.value = p.n;   // so a stale change event from the old field cannot overwrite the pick
+  sugHide(); commitSlot(k, i, p.n); render();
+  // jump to the next empty slot so a roster can be entered quickly
+  for (var j=i+1;j<=SLOTS;j++) if (!S[k].p[j-1].trim()) { var nx=document.querySelector('[data-tabk="'+k+'"][data-slot="'+j+'"]'); if (nx) nx.focus(); break; }
+}
+document.addEventListener('focusin', function(e){
+  var el = e.target;
+  if (el.dataset && el.dataset.slot) sugShow(el, !!el.value.trim() && !!(DATA[el.dataset.tabk==='L'?'c':S.T.src]||{by:{}}).by[el.value.trim()]);
+});
+document.addEventListener('focusout', function(e){ if (e.target.dataset && e.target.dataset.slot) sugHide(); });
+document.addEventListener('input', function(e){ if (e.target.dataset && e.target.dataset.slot) sugShow(e.target); });
+document.addEventListener('mousedown', function(e){
+  var row = e.target.closest && e.target.closest('.sug .si');
+  if (row) { e.preventDefault(); sugPick(+row.dataset.i); }
+  else if (e.target.closest && e.target.closest('.sug')) e.preventDefault();
+});
+document.addEventListener('keydown', function(e){
+  var el = e.target; if (!el.dataset || !el.dataset.slot) return;
+  if (e.key==='ArrowDown' || e.key==='ArrowUp') {
+    if (!sug.input) sugShow(el, true); else sugMove(e.key==='ArrowDown' ? 1 : -1);
+    e.preventDefault();
+  } else if (e.key==='Enter') {
+    e.preventDefault();
+    if (sug.input && sug.at>=0) sugPick(sug.at);
+    else { var k=el.dataset.tabk, i=+el.dataset.slot; el.value = canon(k==='L'?'c':S.T.src, el.value); sugHide(); commitSlot(k,i,el.value); render(); }
+  } else if (e.key==='Escape') sugHide();
+});
+window.addEventListener('resize', sugPos);
+document.addEventListener('scroll', function(e){ if (!sug.el || e.target===sug.el) return; sugPos(); }, true);
+
 // ---------- events ----------
 function setPath(path, val){ var a=path.split('.'), o=S; for (var i=0;i<a.length-1;i++) o=o[a[i]]; o[a[a.length-1]]=val; }
 document.addEventListener('change', function(e){
   var el = e.target; lastActivity = Date.now();
   if (el.dataset.slot) {
-    var k = el.dataset.tabk, i = +el.dataset.slot, src = k==='L'?'c':S.T.src;
-    var v = canon(src, el.value), old = S[k].p[i-1].trim();
-    S[k].p[i-1] = v;
-    // a different player in this slot: their old played lineups no longer apply
-    if (k==='L' && v!==old) S.L.pl = S.L.pl.filter(function(key){ return key.indexOf(String(i))<0; });
+    commitSlot(el.dataset.tabk, +el.dataset.slot, el.value);
     setTimeout(render, 0);   // let focus move to the next field first
   } else if (el.dataset.played) {
     var key = el.dataset.played, at = S.L.pl.indexOf(key);
@@ -586,7 +661,7 @@ document.addEventListener('click', function(e){
   else if (a==='TclearWins') { S.T.w = {}; render(); }
   else if (a==='Tcopy') copyT();
   else if (a==='unlock') unlock();
-  else if (a==='lock') { TM_KEY=''; DATA.tm=null; try{localStorage.removeItem('rsclt_key');}catch(x){} S.T.src='c'; S.T.t=''; $('dl_tm').innerHTML=''; render(); }
+  else if (a==='lock') { TM_KEY=''; DATA.tm=null; try{localStorage.removeItem('rsclt_key');}catch(x){} S.T.src='c'; S.T.t=''; render(); }
 });
 
 // auto refresh while the page is visible and in use
