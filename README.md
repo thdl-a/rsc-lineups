@@ -65,7 +65,7 @@ Tier Maker sheet ┘     60 s cache, passcode for Tier Maker     all logic runs 
 ```
 
 - **`index.html`**: the whole app (one file). Schedules, MMR rules, cap checks and saving all run in the visitor's browser. `API_URL` near the top points at the Apps Script.
-- **Apps Script** (not in this repo; stored in the RSC Admin project as `Code.gs`): a standalone script deployed as a web app (*Execute as: Me*, *Who has access: Anyone*). It reads:
+- **Apps Script** (`Code.gs` in this repo, with the two sheet IDs replaced by placeholders; paste the real IDs only in your own Apps Script copy, never in GitHub): a standalone script deployed as a web app (*Execute as: Me*, *Who has access: Anyone*). It reads:
   - Contracts → `Contracts` (players, with tier in column J), `Tiers` (min/max/cap), `Count/Keeper` (promoted MMR)
   - Tier Maker → `GM Tier List` (players, tier table, promoted MMR)
 
@@ -85,5 +85,6 @@ Tier Maker sheet ┘     60 s cache, passcode for Tier Maker     all logic runs 
 ## Files
 
 - `index.html`: the web app
+- `Code.gs`: the Apps Script data endpoint (paste into script.google.com; it is not served by GitHub Pages)
 - `changelog.txt`: what changed, from the original sheet template to this web app
 - `README.md`: this file
