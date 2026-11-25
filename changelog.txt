@@ -1,0 +1,205 @@
+RSC LINEUPS & TRYOUTS - CHANGE LOG
+What changed, in plain language. Newest first.
+
+======================================================================
+v2.0  WEB APP  (11/25/2026)
+======================================================================
+The Google Sheet template was turned into a web page hosted on GitHub
+Pages. It does the same jobs (Lineups and Tryouts) without anyone
+making a copy of a sheet.
+
+1. HOW IT WORKS
+- Item: Where it lives
+  Before: Each GM made their own copy of the Google Sheet template
+  Now:    One web page for everyone. Fixes go live for all users at once
+
+- Item: Player and tier data
+  Before: Each copy pulled data with IMPORTRANGE and needed
+          "Allow access" clicked on the Data tab
+  Now:    A Google Apps Script reads the Contracts and Tier Maker sheets
+          and serves the data to the page. Nothing to link or allow.
+          Data is at most about 60 seconds old; Refresh re-reads it
+
+- Item: Schedules
+  Before: Hidden Schedules tab
+  Now:    Built into the page. Same game orders as the sheet
+
+- Item: Saving your work
+  Before: Saved in your sheet copy
+  Now:    Saved in your browser automatically. "Copy link" makes a link
+          that opens your exact setup (players, tier, played games, wins)
+          so you can share it in Discord
+
+2. TIER MAKER PROTECTION
+- Item: Tier Maker source (management only)
+  Before: Anyone with the Tier Maker link pasted into their copy
+  Now:    Tryouts > Player Source > Tier Maker asks for a passcode.
+          The passcode is checked on the server; it is never in the page
+          or in shared links. 20 wrong tries in 10 minutes locks it for
+          10 minutes. "Lock" forgets the passcode on that browser
+
+3. NEW IN THE WEB APP
+- Tryouts: click "Blue won" or "Orange won" for each game (click again
+  to undo) instead of typing a 1. Each player shows a W-L record
+- Tryouts: wins are kept per schedule, so removing and re-adding the
+  7th player does not lose results
+- Lineups: changing the player in a slot clears only that slot's
+  played lineups
+- Lineups: names are matched without caring about capitals
+  (e.g. "golf" becomes "Golf")
+- "Copy for Discord" on Lineups (every lineup with total, room and a
+  check or cross) and Tryouts (each result plus a W-L record)
+- Status pill in the header: player count and data time. Click it to
+  see each tier's min, max, cap and promoted MMR, plus any data notes
+  (e.g. a tier with no promoted MMR uses the tier min)
+- Works on phones and follows the device's dark/light mode
+- Auto-refreshes the data every 5 minutes while the page is in use
+
+4. SAME RULES AS THE SHEET
+- Player list: Rostered, Free Agent, Permanent Free Agent,
+  Perm FA in Waiting. and GM (Unsigned), sorted A to Z
+- MMR: base MMR. A player from a lower tier counts at the selected
+  tier's promoted MMR (highest Effective MMR in the second-to-last
+  Keeper round), shaded amber. Falls back to the tier min if missing
+- Room for 4th = cap minus the lineup total. Green: a tier max 4th
+  fits. Red: won't fit even with a tier min 4th
+- Show MMR off hides every MMR value and total
+- A name not in the list is accepted; its MMR and totals stay blank
+
+5. HOW IT WAS CHECKED
+- Apps Script tested with fake Google services: status filter, tier
+  limits, promoted MMR rule, caching, passcode accepted, rejected and
+  locked out
+- Every schedule compared with the sheet's Schedules tab: 5/6/7-player
+  lineups (10/20/35, all unique), 6-player tryouts (10 splits),
+  7 balanced (everyone sits once, every pair teams up exactly twice),
+  14 (same with sides swapped), 70 (matches the sheet's order)
+- Page tested in a browser with mock data: MMR and promoted players,
+  totals and room colors, Played counts, W-L, Show MMR, shared links,
+  Tier Maker lock, phone width and dark mode
+
+======================================================================
+v1.0  GOOGLE SHEET TEMPLATE  (Revision 13, 11/24/2026)
+======================================================================
+What changed from the original template, copied from the sheet's
+Change Log tab.
+
+1. TABS
+- Lineups
+  Before: 3 separate tabs: one each for 5, 6 and 7 players
+  Now:    1 Lineups tab. Pick 5, 6 or 7 players
+- Tryouts
+  Before: 5 tabs: 6 and 7 players, each for Contracts and Tier Maker,
+          plus a "Simple" 7-player tab
+  Now:    1 Tryouts tab. A Player Source dropdown switches between
+          Contracts and Tier Maker
+- Reference tabs
+  Before: 5 copies of player and tier data (GM Tier List,
+          GM Tier List-MMR, 3s-Count/Keeper, 3s-Contracts, 3s-MMR)
+  Now:    Removed. Data now comes straight from the two linked sheets
+- Data
+  Before: Spread across the reference tabs
+  Now:    1 Data tab that pulls players, MMR and tiers from the links.
+          Keep it visible: it is where users click "Allow access"
+- Schedules
+  Before: Game rotations built into each tab
+  Now:    1 hidden Schedules tab shared by Lineups and Tryouts
+- Instructions
+  Before: 4 link rows (two links each for Contracts and Tier Maker)
+  Now:    2 links: Contracts (required) and Tier Maker (optional,
+          management only)
+- Change Log
+  Before: None
+  Now:    A plain-language record of what changed
+
+2. BUGS FIXED
+- Tier Maker limits
+  Before: On the Tier Maker tabs, the cap and tier limits depended on
+          the "show MMR" link, so leaving that link blank broke them
+  Now:    Cap and tier limits always work. The Show MMR checkbox only
+          controls whether MMR is displayed
+- 7-player layout
+  Before: On the 7-player lineup tabs the top and bottom numbers were
+          the opposite of the 6-player tabs
+  Now:    One layout everywhere: lineup total on top, cap remainder below
+- Player dropdown
+  Before: Unsorted, and included people who are not active (Inactive
+          Reserve, AGM IR, Former, Dropped)
+  Now:    Sorted A to Z. Shows only Rostered, Free Agent, Permanent
+          Free Agent, Perm FA in Waiting and GM (Unsigned)
+- Leftover cells
+  Before: Stray cells at the bottom of the 6-player Contracts tab
+  Now:    Not carried over
+- Blank-cell errors
+  Before: Leaving the tier or cap blank could show error values
+  Now:    Cap, tier limits, MMR and totals stay blank until a tier and
+          players are chosen. With Show MMR off, or a typed name that
+          has no MMR, totals stay blank instead of showing 0 or a
+          partial total
+- Number-only player names
+  Before: A player whose name is a number (e.g. "22") showed a blank
+          MMR, which blanked every lineup total containing them
+  Now:    Number names look up correctly on both tabs, including the
+          amber promoted-MMR shading
+- Lineups player dropdown
+  Before: Picking a number-only name (e.g. "22") from the Lineups
+          dropdown was rejected as invalid data
+  Now:    The dropdown accepts it, like the Tryouts dropdown. A name
+          not in the list is also accepted, but its MMR and totals
+          stay blank
+- Lineups edit warnings
+  Before: The Lineups tab warned on every edit, including the player
+          and tier dropdowns, Show MMR and Played boxes
+  Now:    Those input cells no longer warn. Formulas and layout still do
+
+3. NEW FEATURES
+- Show MMR
+  Before: Hide MMR by leaving a link row blank
+  Now:    A checkbox on each tab (Lineups and Tryouts)
+- Effective MMR
+  Before: Showed each player's MMR for their own tier
+  Now:    Shows base MMR. A player promoted from a lower tier gets the
+          highest MMR in the selected tier's second-to-last Keeper
+          round (round 5 when there are 6), taken from the Count/Keeper
+          tab (Contracts) or GM Tier List (Tier Maker). Shaded amber.
+          Players already in the tier keep their own MMR
+- Balanced 7-player schedule
+  Before: Only the full list of every possible split
+  Now:    7 games (everyone sits once, teams up with each other player
+          twice), 14 games (the same with sides swapped), or all 70
+          splits
+- Accidental-edit protection
+  Before: Nothing protected, so formulas could be overwritten by mistake
+  Now:    A warning appears if someone edits formulas, schedules, data
+          or helper columns. Input cells (players, tier, settings, wins,
+          Played, links) stay open. It is a warning, not a lock
+- Lineups Played tracker
+  Before: A 7-column Count table showing each player's running total
+          at every game, which was hard to read
+  Now:    Tick a game's Played checkbox after playing it. The game greys
+          out, and a single Played column beside the players shows how
+          many games each has played. Players behind the others are
+          shaded amber
+
+4. LOOK AND CLEANUP
+- Design
+  Before: Plain tables
+  Now:    Title banners, blue and orange teams, tinted and gridded empty
+          game blocks, cream input cells, frozen headers
+- Cleanup
+  Before: Extra empty columns and rows, duplicate data copies
+  Now:    Removed. Helper columns are hidden
+- Ready to ship
+  Before: Links and test entries left in
+  Now:    Links and test entries blank. Last updated 11/24/2026
+
+5. HOW IT WAS CHECKED
+Lineups (5, 6 and 7 players) and Tryouts (6 and 7 players, both
+sources) were compared against the original tabs. The 7-game schedule
+was verified by script. Show MMR, blank links, typed names and
+effective MMR were tested with real players. The Played tracker was
+tested with 7 players: ticked games counted correctly and a player with
+0 games was flagged. Promoted MMR was tested on both tabs with both
+sources, including a number-only name ("22") and the Tier Maker source.
+Players already in the tier (e.g. Veteran at 1360 and 1370) kept their
+own MMR.
