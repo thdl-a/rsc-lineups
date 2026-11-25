@@ -612,6 +612,12 @@ function commitSlot(k, i, raw){
   if (k==='L' && v!==old) S.L.pl = S.L.pl.filter(function(key){ return key.indexOf(String(i))<0; });
 }
 var sug = {el:null, input:null, items:[], at:-1};
+var sugQuiet = false;   // true while the page moves focus by itself, so the list does not reopen
+function quietly(fn){ sugQuiet = true; try { fn(); } finally { sugQuiet = false; } }
+function sugFocusShow(el){
+  var d = DATA[el.dataset.tabk==='L' ? 'c' : S.T.src];
+  sugShow(el, !!el.value.trim() && !!(d && d.by[el.value.trim()]));
+}
 function sugEl(){ if (!sug.el) { var d=document.createElement('div'); d.className='sug hidden'; document.body.appendChild(d); sug.el=d; } return sug.el; }
 function sugHide(){ if (sug.el) sug.el.className='sug hidden'; sug.input=null; sug.items=[]; sug.at=-1; }
 function sugPos(){
@@ -656,13 +662,19 @@ function sugPick(n){
   var p = sug.items[n], inp = sug.input; if (!p || !inp) return;
   var k = inp.dataset.tabk, i = +inp.dataset.slot;
   inp.value = p.n;   // so a stale change event from the old field cannot overwrite the pick
-  sugHide(); commitSlot(k, i, p.n); render();
-  // jump to the next empty slot so a roster can be entered quickly
-  for (var j=i+1;j<=SLOTS;j++) if (!S[k].p[j-1].trim()) { var nx=document.querySelector('[data-tabk="'+k+'"][data-slot="'+j+'"]'); if (nx) nx.focus(); break; }
+  sugHide(); commitSlot(k, i, p.n);
+  quietly(function(){
+    render();
+    // move to the next empty slot so a roster can be typed in quickly; the list opens when you type or click
+    var moved = false;
+    for (var j=i+1;j<=SLOTS;j++) if (!S[k].p[j-1].trim()) { var nx=document.querySelector('[data-tabk="'+k+'"][data-slot="'+j+'"]'); if (nx) { nx.focus(); moved = true; } break; }
+    if (!moved && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  });
+  sugHide();
 }
 document.addEventListener('focusin', function(e){
   var el = e.target;
-  if (el.dataset && el.dataset.slot) sugShow(el, !!el.value.trim() && !!(DATA[el.dataset.tabk==='L'?'c':S.T.src]||{by:{}}).by[el.value.trim()]);
+  if (el.dataset && el.dataset.slot && !sugQuiet) sugFocusShow(el);
 });
 document.addEventListener('focusout', function(e){ if (e.target.dataset && e.target.dataset.slot) sugHide(); });
 document.addEventListener('input', function(e){ if (e.target.dataset && e.target.dataset.slot) sugShow(e.target); });
@@ -679,7 +691,7 @@ document.addEventListener('keydown', function(e){
   } else if (e.key==='Enter') {
     e.preventDefault();
     if (sug.input && sug.at>=0) sugPick(sug.at);
-    else { var k=el.dataset.tabk, i=+el.dataset.slot; el.value = canon(k==='L'?'c':S.T.src, el.value); sugHide(); commitSlot(k,i,el.value); render(); }
+    else { var k=el.dataset.tabk, i=+el.dataset.slot; el.value = canon(k==='L'?'c':S.T.src, el.value); sugHide(); commitSlot(k,i,el.value); quietly(function(){ render(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }); sugHide(); }
   } else if (e.key==='Escape') sugHide();
 });
 window.addEventListener('resize', sugPos);
@@ -691,7 +703,12 @@ document.addEventListener('change', function(e){
   var el = e.target; lastActivity = Date.now();
   if (el.dataset.slot) {
     commitSlot(el.dataset.tabk, +el.dataset.slot, el.value);
-    setTimeout(render, 0);   // let focus move to the next field first
+    setTimeout(function(){   // let focus move to the next field first
+      var was = sug.input ? sug.input.dataset.tabk+'.'+sug.input.dataset.slot : '';
+      quietly(render);
+      // keep a list that was open (e.g. after Tab into the next slot); a pick has already closed it
+      if (was) { var a = document.activeElement; if (a && a.dataset && a.dataset.slot && (a.dataset.tabk+'.'+a.dataset.slot)===was) sugFocusShow(a); }
+    }, 0);
   } else if (el.dataset.played) {
     var key = el.dataset.played, at = S.L.pl.indexOf(key);
     if (el.checked && at<0) S.L.pl.push(key); else if (!el.checked && at>=0) S.L.pl.splice(at,1);
@@ -715,6 +732,8 @@ function unlock(){
 }
 document.addEventListener('click', function(e){
   lastActivity = Date.now();
+  var tgt = e.target;   // clicking a slot that already has the cursor (e.g. after a pick) opens its list
+  if (tgt && tgt.dataset && tgt.dataset.slot && sug.input!==tgt) sugFocusShow(tgt);
   var home = e.target.closest && e.target.closest('#home');
   if (home) {   // start over: forget the saved setup (the Tier Maker passcode stays) and load the clean page
     e.preventDefault();

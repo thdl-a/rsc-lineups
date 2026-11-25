@@ -73,6 +73,9 @@ making a copy of a sheet.
    - The header shows the season in parentheses, e.g. "RSC Lineups &
      Tryouts (S27)", read from the Contracts sheet's title (the first
      "S" or "Season" number in it)
+   - Player list closes after you pick a player (it used to reopen).
+     The cursor moves to the next empty slot without opening its list;
+     the list opens when you type or click
    - Footer: "Found a bug? DM w.ntr on Discord" and "Enjoying it so far?
      Send a 🍪"
    - Copy link is much shorter (about a third to a fifth of the old
