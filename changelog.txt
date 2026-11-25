@@ -62,6 +62,14 @@ making a copy of a sheet.
      again, and picking one jumps to the next empty slot
    - The title is now a link that starts over: it clears the saved setup
      and opens the clean page (the Tier Maker passcode is kept)
+   - Player list now shows each player's tier (worked out from their
+     MMR and the tier ranges), their Base MMR (true MMR), and Effective
+     MMR when they would be promoted into the selected tier. The Eff.
+     column appears once a tier is picked; Show MMR off hides both
+   - Light and dark themes redone for contrast and comfort, with a
+     "Theme" button (Auto, Light, Dark) that is remembered. Native
+     dropdowns, checkboxes and scrollbars follow the theme too
+   - Footer: "Found a bug? DM w.ntr on Discord"
    - A "Totals" row in the Contracts Tiers tab was read as a tier. Summary
      rows with no min, max or cap are now ignored
 

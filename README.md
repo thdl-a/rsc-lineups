@@ -43,6 +43,14 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 - **🔗 Copy link** copies a link that opens your exact setup (players, tier, played games, wins). The Tier Maker passcode is never included.
 - **Copy for Discord** copies a text summary of lineups or tryout results.
 
+### Player list
+- Type in a player slot to filter, then click or press Enter (arrow keys and Esc work too).
+- Each row shows the player's **tier** (from their MMR), **Base** MMR (true MMR) and, once a tier is selected, **Eff.** (the MMR they count at if promoted into that tier).
+- Show MMR off hides the numbers.
+
+### Theme
+- The **Theme** button cycles Auto (follows your device), Light and Dark. It is remembered per browser.
+
 ### Header
 - **Status pill**: player count. Click it for each tier's min, max, cap and promoted MMR, plus any data notes.
 - **Refresh** re-reads the sheets. The page also refreshes every 5 minutes while in use.
