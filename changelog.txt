@@ -60,6 +60,8 @@ making a copy of a sheet.
      list hid them). Type to filter, click or press Enter to pick, arrow
      keys to move, Esc to close. Players already chosen are not offered
      again, and picking one jumps to the next empty slot
+   - The title is now a link that starts over: it clears the saved setup
+     and opens the clean page (the Tier Maker passcode is kept)
    - A "Totals" row in the Contracts Tiers tab was read as a tier. Summary
      rows with no min, max or cap are now ignored
 

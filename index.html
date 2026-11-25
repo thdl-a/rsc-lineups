@@ -23,6 +23,7 @@
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 Roboto,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
 header{background:var(--head);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;position:sticky;top:0;z-index:20}
 header h1{font-size:17px;margin:0;color:var(--headInk);letter-spacing:.3px}
+header h1 a{color:inherit;text-decoration:none}
 .meta{font-size:12px;color:#bbb;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
 .pill{border-radius:999px;padding:2px 10px;font-weight:600;font-size:12px;cursor:pointer;border:0}
 .pill.ok{background:#1e8e3e;color:#fff}.pill.warn{background:#f9ab00;color:#111}.pill.bad{background:#d93025;color:#fff}
@@ -108,7 +109,7 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
 </head>
 <body>
 <header>
-  <h1>RSC Lineups & Tryouts</h1>
+  <h1><a id="home" href="https://thdl-a.github.io/rsc-lineups/" title="Start over">RSC Lineups & Tryouts</a></h1>
   <div class="meta">
     <button id="statusPill" class="pill warn" title="Show data details">Loading…</button>
     <span id="updated">–</span>
@@ -643,6 +644,13 @@ function unlock(){
 }
 document.addEventListener('click', function(e){
   lastActivity = Date.now();
+  var home = e.target.closest && e.target.closest('#home');
+  if (home) {   // start over: forget the saved setup (the Tier Maker passcode stays) and load the clean page
+    e.preventDefault();
+    try { localStorage.removeItem('rsclt'); } catch(x) {}
+    location.href = home.href;
+    return;
+  }
   var el = e.target.closest('button'); if (!el) return;
   if (el.dataset.tab) { S.tab = el.dataset.tab; renderTabs(); render(); return; }
   if (el.id==='refreshBtn') { load('c', true); if (DATA.tm || (S.T.src==='tm' && TM_KEY)) load('tm', true); return; }
