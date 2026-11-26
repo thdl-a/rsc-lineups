@@ -7,7 +7,7 @@ A web page for RSC 3s GMs and management to:
 
 It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copies to make and no sheets to link. Open the page and go.
 
-**Live page:** https://thdl-a.github.io/rsc-lineups/
+**Live page:** https://lineups.rscna.workers.dev/
 
 ## Using it
 
