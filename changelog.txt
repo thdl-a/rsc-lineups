@@ -2,6 +2,16 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.1  HEADER  (11/26/2026)
+======================================================================
+- Added the RSC logo (transparent PNG, rsc-logo.png) to the left of the
+  page title.
+- The season in the header now comes from the Draft Board Analyzer, so
+  both apps always show the same season. If the Draft Board can't be
+  reached, it falls back to the season in the Contracts sheet's name.
+- Season shown as "- S27" (same style as the Draft Board) instead of "(S27)".
+
+======================================================================
 v2.0  WEB APP  (11/25/2026)
 ======================================================================
 The Google Sheet template was turned into a web page hosted on GitHub
