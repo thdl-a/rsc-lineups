@@ -16,6 +16,10 @@ v2.2  SIGN-IN AND DEMO  (11/26/2026)
 - New demo at https://lineups.rscna.workers.dev/demo: invented players,
   no sign-in, nothing sent anywhere. Tier Maker passcode in the demo: demo.
 - The season now comes from the Draft Board's public season endpoint.
+- The Contracts and Tier Maker sheet IDs are now Script Properties instead of
+  lines in Code.gs. A new season is a settings edit, with no code change or redeploy.
+- Tier Maker: a helper table below the tier table repeated six tier names; they
+  are ignored so each tier is listed once.
 
 ======================================================================
 v2.1  HEADER  (11/26/2026)

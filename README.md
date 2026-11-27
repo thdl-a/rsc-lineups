@@ -69,7 +69,7 @@ Browser ──► Cloudflare Worker (worker.js) ──key──► Apps Script (
 
 - **`public/index.html`**: the whole app (one file). Schedules, MMR rules, cap checks and saving all run in the browser. It loads data from `/api/data` on the same site.
 - **`worker.js`**: a Cloudflare Worker with static assets. It handles Discord sign-in, serves the page, proxies data from Apps Script and caches the Contracts data for 60 seconds (**Refresh** bypasses the cache). It also serves `/demo`.
-- **`Code.gs`**: the Apps Script data endpoint, a standalone script deployed as a web app (*Execute as: Me*, *Who has access: Anyone*). It is pasted into script.google.com and not served from here. The two sheet IDs are placeholders in this repo; the real ones go only in your own Apps Script copy. It reads:
+- **`Code.gs`**: the Apps Script data endpoint, a standalone script deployed as a web app (*Execute as: Me*, *Who has access: Anyone*). It is pasted into script.google.com and not served from here. The sheet IDs are not in the code: they are Script Properties (`CONTRACTS_ID`, `TIER_MAKER_ID`), so this file can be pasted into Apps Script as is. It reads:
   - Contracts → `Contracts` (players, with tier in column J), `Tiers` (min/max/cap), `Count/Keeper` (promoted MMR)
   - Tier Maker → `GM Tier List` (players, tier table, promoted MMR)
 
@@ -88,7 +88,7 @@ Browser ──► Cloudflare Worker (worker.js) ──key──► Apps Script (
 |---|---|
 | `DISCORD_CLIENT_ID`, `GUILD_ID`, `GAS_URL` | `wrangler.jsonc` vars |
 | `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `GAS_SECRET` | Worker secrets (`wrangler secret put NAME`) |
-| `GAS_SECRET`, `TM_KEY` | Apps Script > Project Settings > Script properties |
+| `GAS_SECRET`, `TM_KEY`, `CONTRACTS_ID`, `TIER_MAKER_ID` | Apps Script > Project Settings > Script properties |
 
 None of the secrets are in this repo.
 
@@ -105,7 +105,7 @@ The data is invented: fake players with made-up MMRs across all 10 tiers. It is 
 
 | Task | What to do |
 |---|---|
-| New season / new sheets | In Apps Script, update `CONTRACTS_ID` and `TIER_MAKER_ID` at the top of `Code.gs`, run `testRead`, then **Deploy → Manage deployments → ✏️ → New version**. |
+| New season / new sheets | In Apps Script > Project Settings > Script Properties, change `CONTRACTS_ID` and `TIER_MAKER_ID` to the new sheets' IDs (the part of the link between `/d/` and `/edit`), then run `testRead`. No code edit and no redeploy. The Draft Board's season label (`Import!B1` / `B3`) sets the header. |
 | Change the Tier Maker passcode | Apps Script → Project Settings → Script properties → edit `TM_KEY`. No redeploy needed. |
 | Change `Code.gs` | Save, then deploy a **New version** (the URL stays the same). |
 | Change the page or Worker | Edit `public/index.html` or `worker.js` and push to `main`. Workers Builds deploys in about a minute. |

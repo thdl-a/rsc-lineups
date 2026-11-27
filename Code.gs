@@ -14,16 +14,22 @@
  * Deploy: Deploy > New deployment > Web app
  *         Execute as: Me    Who has access: Anyone
  * Script properties (Project Settings > Script properties; never in this file):
- *   GAS_SECRET = same value as the Worker's GAS_SECRET secret
- *   TM_KEY     = the Tier Maker passcode
+ *   GAS_SECRET    = same value as the Worker's GAS_SECRET secret
+ *   TM_KEY        = the Tier Maker passcode
+ *   CONTRACTS_ID, TIER_MAKER_ID = the two sheet IDs (change them each season)
  */
 
 // ---- Settings -------------------------------------------------------------
 
-// Source spreadsheets. Paste each sheet's ID (the part of its link between /d/ and /edit).
-// Change these when the season's sheets change. Never commit the real IDs to a public repo.
-const CONTRACTS_ID  = 'PASTE_CONTRACTS_SHEET_ID_HERE';
-const TIER_MAKER_ID = 'PASTE_TIER_MAKER_SHEET_ID_HERE';
+// Source spreadsheets: Project Settings > Script Properties > CONTRACTS_ID and TIER_MAKER_ID
+// (an ID is the part of the sheet's link between /d/ and /edit). New season = change the two
+// properties; no code edit or redeploy. They are not kept in this file, so the real IDs never
+// go to GitHub and this file can be pasted as is.
+function sheetId_(prop) {
+  const id = PropertiesService.getScriptProperties().getProperty(prop);
+  if (!id) throw new Error('Script Property ' + prop + ' is not set (Project Settings > Script Properties).');
+  return id.trim();
+}
 
 // Contracts tabs
 const C_PLAYERS = 'Contracts';     // A:J  RSC ID, Player Name, Franchise, Team, Base MMR, Effective MMR, Status, ..., J = Tier
@@ -140,7 +146,7 @@ function getData_(src, force) {
 // ---- Read the sheets ------------------------------------------------------
 
 function buildContracts_() {
-  const ss = SpreadsheetApp.openById(CONTRACTS_ID);
+  const ss = SpreadsheetApp.openById(sheetId_('CONTRACTS_ID'));
 
   // Players: [name, base MMR, status, team, tier]  (tier = column J; Tier Maker has no tier column)
   const pSh = tab_(ss, C_PLAYERS);
@@ -168,7 +174,7 @@ function buildContracts_() {
 }
 
 function buildTierMaker_() {
-  const ss = SpreadsheetApp.openById(TIER_MAKER_ID);
+  const ss = SpreadsheetApp.openById(sheetId_('TIER_MAKER_ID'));
   const sh = tab_(ss, TM_TAB);
   const last = Math.max(sh.getLastRow(), 2);
   const raw = sh.getRange(2, 2, last - 1, 6).getValues();   // B:G
@@ -187,11 +193,13 @@ function buildTierMaker_() {
 // Tier table rows (Contracts Tiers A:K or Tier Maker I:S share the same columns)
 function readTiers_(rows) {
   const tiers = [];
+  const seen = {};
   rows.forEach(function (r) {
     const name = String(r[0]).trim();
-    if (!name) return;
+    if (!name || seen[name]) return;   // a tier name repeated further down (e.g. a second block of min-only rows) is ignored: the first row wins
     const mn = num_(r[5]), mx = num_(r[4]), cap = num_(r[10]);
     if (mn === '' && mx === '' && cap === '') return;   // skips summary rows such as "Totals"
+    seen[name] = true;
     tiers.push([name, mn, mx, cap, '']);  // name, min, max, cap, promoted
   });
   if (!tiers.length) throw new Error('Tier table is empty');
