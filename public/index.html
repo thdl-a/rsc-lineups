@@ -671,8 +671,8 @@ function enforceTier(k){
 }
 function tierBox(k, src){
   var off = k==='T' && src!=='c';
-  return '<label class="k" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;'+(off?'opacity:.55':'cursor:pointer')+'" title="List only players of the selected tier and the tiers below it">'+
-    '<input type="checkbox" data-k="'+k+'.lo"'+(S[k].lo&&!off?' checked':'')+(off?' disabled':'')+'>Only show players of the selected tier and below'+(off?' <span class="note">(Contracts source only)</span>':'')+'</label>';
+  return '<span class="k" style="max-width:190px;'+(off?'opacity:.55':'')+'" title="List only players of the selected tier and the tiers below it">Only show players of the selected tier and below'+(off?' <span style="display:block">(Contracts source only)</span>':'')+'</span>'+
+    '<span><input type="checkbox" data-k="'+k+'.lo"'+(S[k].lo&&!off?' checked':'')+(off?' disabled':'')+'></span>';
 }
 
 // ---------- player list (custom dropdown) ----------
