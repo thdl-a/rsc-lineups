@@ -125,6 +125,10 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
 .sug .none{padding:8px 12px;color:var(--muted);font-size:12px}
 .lock{border:1px dashed var(--warn);background:var(--warnBg);border-radius:6px;padding:8px;margin-top:8px}
 .lock .row input{flex:1;min-width:120px}
+#who{display:inline-flex;gap:8px;align-items:center}
+#who:empty{display:none}
+#who a{color:var(--headInk)}
+.demo-badge{background:var(--accent);color:#111;border-radius:999px;padding:2px 10px;font-weight:700;font-size:12px}
 </style>
 </head>
 <body>
@@ -136,6 +140,7 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
     <button id="themeBtn" title="Theme">Theme: Auto</button>
     <button id="linkBtn" title="Copy a link that opens this exact setup">🔗 Copy link</button>
     <button id="refreshBtn" title="Re-read the sheets">↻ Refresh</button>
+    <span id="who"></span>
   </div>
 </header>
 <div id="checks" class="hidden"></div>
@@ -147,6 +152,11 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
 (function(){
 'use strict';
 
+// Demo mode (/demo): sample data from demo-data.json (Contracts) and demo-data-tm.json
+// (Tier Maker, passcode "demo"); no Apps Script calls.
+var DEMO = /^\/demo(\/|$)/.test(location.pathname);
+var STATE_KEY = DEMO ? 'rsclt_demo' : 'rsclt', PASS_KEY = DEMO ? 'rsclt_demo_key' : 'rsclt_key';
+
 // ======================================================================
 // Paste your Apps Script web app URL here (ends in /exec)
 var API_URL = 'https://script.google.com/macros/s/AKfycbw1xMXnIEknqbbRy4X8MDXBZFVJIW3VQxCRzWtSoO7_MhmsC_DEbASTUpxp9k5Kym--/exec';
@@ -156,7 +166,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbw1xMXnIEknqbbRy4X8MDXBZF
 // Falls back to this app's own (Contracts title) season if the Draft Board can't be reached.
 var DBA_URL = 'https://script.google.com/macros/s/AKfycbz8Zcn3bIGnRuBvEA4HMwQZ9yhMGfrt48XIa_IlapHrd_8kTC5KL-AE8xLMZpHzSblf/exec';
 var DBA_SEASON = '';
-try {
+if (!DEMO) try {
   fetch(DBA_URL+'?action=data').then(function(r){ return r.json(); }).then(function(j){
     DBA_SEASON = String((j && j.season) || '').trim();
     if (DBA_SEASON) { try { renderHeader(); } catch(e){} }
@@ -265,12 +275,12 @@ function decodeState(s){
     if (mc) { merge(S, decodeCompact(mc[1])); fromHash = true; }
     else if (ms) { merge(S, decodeState(ms[1])); fromHash = true; }
   } catch(e) {}
-  if (!fromHash) { try { merge(S, JSON.parse(localStorage.getItem('rsclt') || 'null')); } catch(e) {} }
-  try { TM_KEY = localStorage.getItem('rsclt_key') || ''; } catch(e) {}
+  if (!fromHash) { try { merge(S, JSON.parse(localStorage.getItem(STATE_KEY) || 'null')); } catch(e) {} }
+  try { TM_KEY = localStorage.getItem(PASS_KEY) || ''; } catch(e) {}
   sanitize();
 })();
 function persist(){
-  try { localStorage.setItem('rsclt', JSON.stringify(S)); } catch(e) {}
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(S)); } catch(e) {}
   try { var c = encodeCompact(); history.replaceState(null, '', location.pathname + location.search + (c ? '#c=' + c : '')); } catch(e) {}
 }
 
@@ -333,18 +343,25 @@ function apiUrl(src, force){
   var u = API_URL + '?action=data' + (src==='tm' ? '&src=tm&key='+encodeURIComponent(TM_KEY) : '') + (force?'&force=1':'') + '&t=' + Date.now();
   return u;
 }
+// Demo: same JSON shapes as getData_() in Code.gs, read from files next to the page.
+function demoFetch(src){
+  if (src==='tm' && TM_KEY!=='demo') return new Promise(function(res){ setTimeout(function(){ res(JSON.stringify({error:'bad_key'})); }, 400); });
+  return fetch(src==='tm' ? 'demo-data-tm.json' : 'demo-data.json', {cache:'no-cache'})
+    .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(raw){ raw.builtAt = Date.now(); return JSON.stringify(raw); });
+}
 function load(src, force){
   if (loading[src]) return;
-  if (!/^https:\/\//.test(API_URL)) { $('view').innerHTML = '<div class="banner bad">Setup needed: paste the Apps Script /exec URL into <b>API_URL</b> at the top of the script in index.html.</div>'; return; }
+  if (!DEMO && !/^https:\/\//.test(API_URL)) { $('view').innerHTML = '<div class="banner bad">Setup needed: paste the Apps Script /exec URL into <b>API_URL</b> at the top of the script in index.html.</div>'; return; }
   if (src==='tm' && !TM_KEY) return;
   loading[src] = true; setBusy();
-  fetch(apiUrl(src, force)).then(function(r){ return r.text(); }).then(function(text){
+  (DEMO ? demoFetch(src) : fetch(apiUrl(src, force)).then(function(r){ return r.text(); })).then(function(text){
     loading[src] = false; setBusy();
     var raw; try { raw = JSON.parse(text); } catch(e) { throw new Error('Unexpected reply from the data endpoint'); }
     if (raw.error) {
       if (src==='tm') {
         DATA.tm = null;
-        if (raw.error==='bad_key') { tmMsg = 'Wrong passcode.'; TM_KEY=''; try{localStorage.removeItem('rsclt_key');}catch(e){} }
+        if (raw.error==='bad_key') { tmMsg = 'Wrong passcode.'; TM_KEY=''; try{localStorage.removeItem(PASS_KEY);}catch(e){} }
         else if (raw.error==='locked') tmMsg = 'Too many wrong passcodes. Try again in 10 minutes.';
         else if (raw.error==='no_key_set') tmMsg = 'Tier Maker passcode is not set up on the server yet.';
         else tmMsg = 'Could not read the Tier Maker: '+(raw.message||raw.error);
@@ -549,7 +566,7 @@ function renderT(){
     '<span class="k">Show MMR</span><span><input type="checkbox" data-k="T.m"'+(S.T.m?' checked':'')+'></span>'+
   '</div>';
   if (src==='tm') {
-    if (!d) h += '<div class="lock"><div class="note" style="margin-bottom:6px">Tier Maker is management only. Enter the passcode.</div>'+
+    if (!d) h += '<div class="lock"><div class="note" style="margin-bottom:6px">Tier Maker is management only. Enter the passcode.'+(DEMO?' In the demo it is <b>demo</b>.':'')+'</div>'+
       '<div class="row"><input type="password" id="tmKey" placeholder="Passcode" autocomplete="current-password"><button class="primary" data-act="unlock"'+(loading.tm?' disabled':'')+'>'+(loading.tm?'Checking…':'Unlock')+'</button></div>'+
       (tmMsg?'<div class="pmsg" style="margin:6px 0 0">'+esc(tmMsg)+'</div>':'')+'</div>';
     else h += '<div class="note" style="margin-top:8px">Tier Maker unlocked (as of '+timeStr(d.builtAt)+'). <button data-act="lock" style="padding:1px 8px;font-size:12px">Lock</button></div>';
@@ -740,7 +757,7 @@ function unlock(){
   var v = ($('tmKey')||{}).value || '';
   if (!v) return;
   TM_KEY = v; tmMsg='';
-  try { localStorage.setItem('rsclt_key', v); } catch(e) {}
+  try { localStorage.setItem(PASS_KEY, v); } catch(e) {}
   load('tm'); render();
 }
 document.addEventListener('click', function(e){
@@ -750,7 +767,7 @@ document.addEventListener('click', function(e){
   var home = e.target.closest && e.target.closest('#home');
   if (home) {   // start over: forget the saved setup (the Tier Maker passcode stays) and load the clean page
     e.preventDefault();
-    try { localStorage.removeItem('rsclt'); } catch(x) {}
+    try { localStorage.removeItem(STATE_KEY); } catch(x) {}
     location.href = home.href;
     return;
   }
@@ -773,7 +790,7 @@ document.addEventListener('click', function(e){
   else if (a==='TclearWins') { S.T.w = {}; render(); }
   else if (a==='Tcopy') copyT();
   else if (a==='unlock') unlock();
-  else if (a==='lock') { TM_KEY=''; DATA.tm=null; try{localStorage.removeItem('rsclt_key');}catch(x){} S.T.src='c'; S.T.t=''; render(); }
+  else if (a==='lock') { TM_KEY=''; DATA.tm=null; try{localStorage.removeItem(PASS_KEY);}catch(x){} S.T.src='c'; S.T.t=''; render(); }
 });
 
 // auto refresh while the page is visible and in use
@@ -787,6 +804,7 @@ document.addEventListener('visibilitychange', function(){
 });
 
 applyTheme();
+if (DEMO) $('who').innerHTML = '<span class="demo-badge" title="Invented data. Nothing is sent anywhere.">Demo – sample data</span>';
 renderTabs();
 load('c');
 if (S.T.src==='tm' && TM_KEY) load('tm');
