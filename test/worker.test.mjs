@@ -135,7 +135,9 @@ test('callback rejects a bad state and a cancelled sign-in', async () => {
 test('matrix: logged in, not in the RSC server -> denied', async () => {
   const r = await signIn(null);
   assert.equal(r.status, 403);
-  assert.match(await r.text(), /Signed in as tester/);
+  const t = await r.text();
+  assert.match(t, /Signed in as tester/);
+  assert.match(t, /Join the RSC Discord server at <a href="https:\/\/discord\.gg\/rsc">discord\.gg\/rsc<\/a>/);
   assert.equal(cookieVal(r, '__Host-rsc_session'), '');
 });
 
@@ -143,7 +145,9 @@ test('matrix: in server, no Management role', async () => {
   const r = await signIn({ roles: ['R9'] });
   if (REQUIRE_ROLE) {
     assert.equal(r.status, 403);
-    assert.match(await r.text(), /Management role/);
+    const t = await r.text();
+    assert.match(t, /Management role/);
+    assert.doesNotMatch(t, /discord\.gg\/rsc/);   // in the server: no join prompt
   } else {
     assert.equal(r.status, 302);
     assert.ok(cookieVal(r, '__Host-rsc_session'));

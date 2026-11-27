@@ -22,11 +22,12 @@ const APP = {
   allowPost: false,                 // this app only reads
   passParams: ['force', 'src', 'tmkey'], // src=tm&tmkey=<Tier Maker passcode> is checked by Apps Script
   who: 'members of the RSC Discord server',
-  deniedNoServer: 'Join the RSC Discord server to use Lineups & Tryouts.',
+  deniedNoServer: 'You are not in the RSC Discord server.',
   deniedNoRole: ''
 };
 
 // ---- Constants -------------------------------------------------------------
+const JOIN_URL = 'https://discord.gg/rsc';   // shown to people who are not in the RSC server
 const SESSION_DAYS = 14;
 const SESSION_COOKIE = '__Host-rsc_session';
 const STATE_COOKIE = '__Host-rsc_oauth';
@@ -147,7 +148,7 @@ async function callback(request, env, url, ctx) {
 
   const denied = !member ? APP.deniedNoServer : (APP.requireRole && !hasRole(member, env.MGMT_ROLE_IDS)) ? APP.deniedNoRole : '';
   if (denied) {
-    return html(deniedPage(name, denied), 403, [clearState, cookie(SESSION_COOKIE, '', 0)]);
+    return html(deniedPage(name, denied, !member), 403, [clearState, cookie(SESSION_COOKIE, '', 0)]);
   }
   const session = await signSession(env, { id: String(me.id), u: name, exp: Date.now() + SESSION_DAYS * 86400000 });
   return redirect(next, [clearState, cookie(SESSION_COOKIE, session, SESSION_DAYS * 86400)]);
@@ -350,8 +351,9 @@ function signInPage(next, msg) {
     '<p>Open to ' + esc(APP.who) + '.</p>' + signInButton(next) +
     '<p class="small">Only your Discord username and ' + (APP.requireRole ? 'your roles in' : 'whether you are in') + ' the RSC server are checked. Nothing is posted to Discord.</p>' + demoLink());
 }
-function deniedPage(name, msg) {
-  return shell('No access', '<h2>Signed in as ' + esc(name) + '</h2><p class="msg">' + esc(msg) + '</p>' + demoLink() +
+function deniedPage(name, msg, notInServer) {
+  const join = notInServer ? '<p>Join the RSC Discord server at <a href="' + JOIN_URL + '">discord.gg/rsc</a>, then sign in again.</p>' : '';
+  return shell('No access', '<h2>Signed in as ' + esc(name) + '</h2><p class="msg">' + esc(msg) + '</p>' + join + demoLink() +
     '<p class="small">Wrong account? Log out of Discord in this browser, then <a href="/auth/login">sign in again</a>.</p>');
 }
 function messagePage(title, innerHtml) {
