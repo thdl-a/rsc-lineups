@@ -5,11 +5,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHmac } from 'node:crypto';
 
 const SRC = readFileSync(new URL('../worker.js', import.meta.url), 'utf8');
 const REQUIRE_ROLE = /requireRole:\s*true/.test(SRC);
 const ALLOW_POST = /allowPost:\s*true/.test(SRC);
 const PASS_SRC = /passParams:[^\n]*'src'/.test(SRC);
+const IDENTITY = /identity:\s*true/.test(SRC);
+const DENIED_ROLE = /deniedNoRole:\s*'([^']*)'/.exec(SRC)[1];   // the message this app shows to members without the role
 
 // ---- Workers runtime stubs -------------------------------------------------------
 globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
@@ -147,7 +150,7 @@ test('matrix: in server, no Management role', async () => {
   if (REQUIRE_ROLE) {
     assert.equal(r.status, 403);
     const t = await r.text();
-    assert.match(t, /Management role/);
+    assert.ok(t.includes(DENIED_ROLE), 'shows the own "no role" message');
     assert.doesNotMatch(t, /discord\.gg\/rsc/);   // in the server: no join prompt
   } else {
     assert.equal(r.status, 302);
@@ -302,4 +305,54 @@ test('/api/season: needs sign-in, is cached for visitors, and fails soft', async
   assert.equal(b.headers.get('X-Cache'), 'HIT');
   assert.equal(n(), before + 1);                       // many visitors, one call to Apps Script
   assert.match(calls.filter((x) => x.url.startsWith('https://season.example')).pop().url, /[?]action=season$/);
+});
+
+// ---- who may post (Draft Board: roles kept in the session, /api/me) ---------------------
+const sessionBody = (cookie) => JSON.parse(Buffer.from(cookie.split('=')[1].split('.')[0], 'base64url').toString());
+
+test('identity: the session keeps the Discord id and role ids', { skip: !IDENTITY }, async () => {
+  const c = await session({ roles: ['R1', 'R9', 'R10'] }, { username: 'gm1' });
+  const b = sessionBody(c);
+  assert.equal(b.id, '42');
+  assert.deepEqual(b.r, ['R1', 'R9', 'R10']);
+  assert.ok(c.length < 1500);
+});
+
+test('identity: a session from before roles were kept must sign in again', { skip: !IDENTITY }, async () => {
+  const body = Buffer.from(JSON.stringify({ id: '42', u: 'old', exp: Date.now() + 60000 })).toString('base64url');
+  const sig = createHmac('sha256', env.SESSION_SECRET).update(body).digest('base64url');
+  const old = '__Host-rsc_session=' + body + '.' + sig;
+  assert.equal((await go('/', { headers: { Cookie: old } })).status, 401);
+  assert.equal((await go('/api/me', { headers: { Cookie: old } })).status, 401);
+});
+
+test('/api/me: asks Apps Script who the person may post for, with the id and roles from the session', { skip: !IDENTITY }, async () => {
+  const c = await session({ roles: ['R1', 'ROLE_ART'] }, { username: 'agm1' });
+  let seen;
+  scene = { gas: (url, init) => { seen = { url, init }; return new RealResponse(JSON.stringify({ who: { canPost: true, gm: 'Alpha', franchise: 'Art Club', how: 'agm', why: '' } })); } };
+  const r = await go('/api/me', { headers: { Cookie: c } });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).who.gm, 'Alpha');
+  assert.equal(r.headers.get('Cache-Control'), 'no-store');
+  assert.equal(seen.init.method, 'POST');
+  assert.equal(new URL(seen.url).searchParams.get('key'), 'gas-key');
+  assert.deepEqual(JSON.parse(seen.init.body), { action: 'who', discordId: '42', roles: ['R1', 'ROLE_ART'] });
+  assert.equal((await go('/api/me')).status, 401);
+  scene = { gas: () => new RealResponse(JSON.stringify({ error: 'unauthorized' })) };
+  assert.equal((await go('/api/me', { headers: { Cookie: c } })).status, 502);
+});
+
+test('/api/post: the Discord id and roles come from the session, never from the browser', { skip: !(IDENTITY && ALLOW_POST) }, async () => {
+  const c = await session({ roles: ['R1', 'ROLE_ART'] }, { username: 'poster' });
+  let seen;
+  scene = { gas: (url, init) => { seen = JSON.parse(init.body); return new RealResponse(JSON.stringify({ postError: 'x' })); } };
+  await go('/api/post', { method: 'POST', body: JSON.stringify({ action: 'paste', gm: 'Bravo', discordId: '999', roles: ['AGM'], postedBy: 'spoof' }), headers: { Cookie: c, Origin: ORIGIN } });
+  assert.equal(seen.discordId, '42');
+  assert.deepEqual(seen.roles, ['R1', 'ROLE_ART']);
+  assert.equal(seen.postedBy, 'poster');
+});
+
+test('/api/me does not exist for the app that does not use it', { skip: IDENTITY }, async () => {
+  const c = await session({ roles: ['R1'] });
+  assert.equal((await go('/api/me', { headers: { Cookie: c } })).status, 404);
 });

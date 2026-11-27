@@ -5,25 +5,29 @@
 //   /auth/logout     clear the session cookie
 //   /demo, /demo/*   the same site in demo mode: sample data, no login, no Apps Script calls
 //   /api/data        [login] GET Apps Script ?action=data&key=GAS_SECRET (cached 60 s)
-//   /api/post        [login] POST to Apps Script (only when APP.allowPost; off for this app)
+//   /api/post        [login] POST to Apps Script, adding the key, the Discord id, roles and username (only when APP.allowPost)
+//   /api/me          [login] who the person may post for (Apps Script action 'who'; only when APP.identity)
 //   everything else  [login] static assets (index.html etc.)
 //
 // Vars (wrangler.jsonc): DISCORD_CLIENT_ID, GUILD_ID, GAS_URL (MGMT_ROLE_IDS only when APP.requireRole)
 // Secrets (wrangler secret put): DISCORD_CLIENT_SECRET, SESSION_SECRET, GAS_SECRET
 //
-// The session is an HMAC-signed cookie (Discord id, username, expiry). Nothing is stored
+// The session is an HMAC-signed cookie (Discord id, username, expiry, and role ids when APP.identity). Nothing is stored
 // server-side. Membership and roles are checked at login only, so removing someone's role
 // takes effect when their session expires (SESSION_DAYS).
 
-// ---- Per-app settings (the only part that differs between the two apps) ----
+// ---- Per-app settings: the ONLY part that differs between the DBA and Lineups. ----
+// Everything below this block is identical in both repos; copy fixes across as they are.
 const APP = {
   title: 'RSC Lineups & Tryouts',
   requireRole: false,               // any member of the RSC server
   allowPost: false,                 // this app only reads
+  identity: false,                  // no role ids in the session, no /api/me
   passParams: ['force', 'src', 'tmkey'], // src=tm&tmkey=<Tier Maker passcode> is checked by Apps Script
-  who: 'members of the RSC Discord server',
+  who: 'Open to members of the RSC Discord server.',
   deniedNoServer: 'You are not in the RSC Discord server.',
-  deniedNoRole: ''
+  deniedNoRole: '',
+  maxPostBytes: 10000
 };
 
 // ---- Constants -------------------------------------------------------------
@@ -37,7 +41,7 @@ const CACHE_PATH = '/__cache/api-data';        // synthetic Cache API key; never
 const DISCORD_API = 'https://discord.com/api/v10';
 const DISCORD_AUTHORIZE = 'https://discord.com/oauth2/authorize';
 const SCOPES = 'identify guilds.members.read';
-const MAX_POST_BYTES = 10000;
+const MAX_ROLES = 100;          // role ids kept in the session cookie
 
 export default {
   async fetch(request, env, ctx) {
@@ -57,6 +61,7 @@ export default {
         if (path === '/api/data') return await apiData(request, env, url, ctx);
         if (path === '/api/season' && env.SEASON_URL) return await apiSeason(env);
         if (path === '/api/post' && APP.allowPost) return await apiPost(request, env, url, user, ctx);
+        if (path === '/api/me' && APP.identity) return await apiMe(request, env, user);
         return json({ error: 'not_found' }, 404);
       }
       if (!user) return html(signInPage(url.pathname + url.search), 401);
@@ -152,7 +157,9 @@ async function callback(request, env, url, ctx) {
   if (denied) {
     return html(deniedPage(name, denied, !member), 403, [clearState, cookie(SESSION_COOKIE, '', 0)]);
   }
-  const session = await signSession(env, { id: String(me.id), u: name, exp: Date.now() + SESSION_DAYS * 86400000 });
+  const payload = { id: String(me.id), u: name, exp: Date.now() + SESSION_DAYS * 86400000 };
+  if (APP.identity) payload.r = (Array.isArray(member.roles) ? member.roles : []).map(String).slice(0, MAX_ROLES);
+  const session = await signSession(env, payload);
   return redirect(next, [clearState, cookie(SESSION_COOKIE, session, SESSION_DAYS * 86400)]);
 }
 
@@ -204,6 +211,7 @@ async function readSession(request, env) {
   if (!body || !sig || !safeEqual(sig, await sign(env.SESSION_SECRET, body))) return null;
   try {
     const s = JSON.parse(new TextDecoder().decode(fromB64url(body)));
+    if (APP.identity && !Array.isArray(s && s.r)) return null; // signed in before roles were kept: sign in again
     return s && s.exp > Date.now() && s.u ? s : null;
   } catch (e) { return null; }
 }
@@ -254,12 +262,14 @@ async function apiPost(request, env, url, user, ctx) {
   if (request.headers.get('Origin') !== url.origin) return json({ postError: 'Blocked: request from another site.' }, 403);
   if (!env.GAS_URL || !env.GAS_SECRET) return json({ postError: 'The data endpoint is not set up (GAS_URL / GAS_SECRET).' }, 503);
   const text = await request.text();
-  if (text.length > MAX_POST_BYTES) return json({ postError: 'Request too large.' }, 413);
+  if (text.length > APP.maxPostBytes) return json({ postError: 'Request too large.' }, 413);
   let body;
   try { body = JSON.parse(text); } catch (e) { body = null; }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ postError: 'Bad request.' }, 400);
   delete body.key;
   body.postedBy = user.u; // who made the change (recorded on the Trade Board)
+  body.discordId = user.id; // Apps Script decides who may post for which GM from these two
+  body.roles = Array.isArray(user.r) ? user.r : [];
   const r = await callGas(env, '?key=' + encodeURIComponent(env.GAS_SECRET), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -268,6 +278,19 @@ async function apiPost(request, env, url, user, ctx) {
   if (r.fail) return json({ postError: r.fail }, 502);
   if (r.good) ctx.waitUntil(cachePut(url, r.text)); // a save returns fresh data: share it
   return dataResponse(r.text, 'POST');
+}
+
+// Who the signed-in person may post for: {who: {canPost, gm, franchise, how, why}}. Never cached.
+async function apiMe(request, env, user) {
+  if (request.method !== 'GET') return json({ error: 'method' }, 405);
+  if (!env.GAS_URL || !env.GAS_SECRET) return json({ error: 'server', message: 'The data endpoint is not set up (GAS_URL / GAS_SECRET).' }, 503);
+  const r = await callGas(env, '?key=' + encodeURIComponent(env.GAS_SECRET), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'who', discordId: user.id, roles: Array.isArray(user.r) ? user.r : [] })
+  });
+  if (r.fail) return json({ error: 'upstream', message: r.fail }, 502);
+  return dataResponse(r.text, 'ME');
 }
 
 // Calls Apps Script. Returns {text, good} (good = real data, safe to cache) or {fail: message}.
@@ -367,7 +390,7 @@ function demoLink() {
 }
 function signInPage(next, msg) {
   return shell('Sign in', '<h2>Sign in to continue</h2>' + (msg ? '<p class="msg">' + esc(msg) + '</p>' : '') +
-    '<p>Open to ' + esc(APP.who) + '.</p>' + signInButton(next) +
+    '<p>' + esc(APP.who) + '</p>' + signInButton(next) +
     '<p class="small">Only your Discord username and ' + (APP.requireRole ? 'your roles in' : 'whether you are in') + ' the RSC server are checked. Nothing is posted to Discord.</p>' + demoLink());
 }
 function deniedPage(name, msg, notInServer) {
