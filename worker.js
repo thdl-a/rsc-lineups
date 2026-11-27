@@ -220,7 +220,10 @@ async function readSession(request, env) {
   try {
     const s = JSON.parse(new TextDecoder().decode(fromB64url(body)));
     if (APP.identity && !Array.isArray(s && s.r)) return null; // signed in before roles were kept: sign in again
-    return s && s.exp > Date.now() && s.u ? s : null;
+    if (!s || !(s.exp > Date.now()) || !s.u) return null;
+    // Issued under a longer sessionDays (e.g. before it was shortened): sign in again, so roles are re-read.
+    if (s.exp - Date.now() > APP.sessionDays * 86400000 + 300000) return null;
+    return s;
   } catch (e) { return null; }
 }
 

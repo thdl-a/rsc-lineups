@@ -441,3 +441,15 @@ test('a Trade Board save reply (the fresh board) is still shared through the cac
   const data = await (await goWith(w, '/api/data', { headers: { Cookie: c } })).json();
   assert.deepEqual(data.posts, [['fresh']]);
 });
+
+// ---- security review (C4): a cookie issued under a longer session length is refused ----
+test('a session cookie that outlives this app\x27s sessionDays (issued before it was shortened) must sign in again', async () => {
+  const mk = (exp) => {
+    const body = Buffer.from(JSON.stringify({ id: '42', u: 'old', exp, r: ['R1'] })).toString('base64url');
+    return '__Host-rsc_session=' + body + '.' + createHmac('sha256', env.SESSION_SECRET).update(body).digest('base64url');
+  };
+  scene = { gas: (url, init) => new RealResponse(JSON.stringify(/"action":"maint"/.test(String(init && init.body)) ? { maintenance: false } : { tiers: [], v: 1 })) };
+  assert.equal((await go('/', { headers: { Cookie: mk(Date.now() + (SESSION_DAYS + 1) * 86400000) } })).status, 401);
+  assert.equal((await go('/', { headers: { Cookie: mk(Date.now() + SESSION_DAYS * 86400000 - 3600000) } })).status, 200);
+  assert.equal((await go('/', { headers: { Cookie: mk(Date.now() - 1000) } })).status, 401);
+});
