@@ -1,0 +1,21 @@
+// Cloudflare Worker for RSC Lineups & Tryouts (https://lineups.rscna.workers.dev).
+// Deployed by Workers Builds on every push to main.
+// Secrets (DISCORD_CLIENT_SECRET, SESSION_SECRET, GAS_SECRET) are set with
+// `wrangler secret put` and never live in this file.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lineups",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "vars": {
+    "DISCORD_CLIENT_ID": "1575678666242007051",
+    "GUILD_ID": "395806681994493964",
+    "GAS_URL": "https://script.google.com/macros/s/AKfycbw1xMXnIEknqbbRy4X8MDXBZFVJIW3VQxCRzWtSoO7_MhmsC_DEbASTUpxp9k5Kym--/exec"
+  }
+}
