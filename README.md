@@ -104,6 +104,8 @@ The data is invented: fake players with made-up MMRs across all 10 tiers. It is 
 
 ## Maintenance
 
+**Starting a new season?** Follow [`NEW-SEASON.md`](NEW-SEASON.md): it covers Lineups and the Draft Board Analyzer.
+
 | Task | What to do |
 |---|---|
 | New season / new sheets | In Apps Script > Project Settings > Script Properties, change `CONTRACTS_ID` and `TIER_MAKER_ID` to the new sheets' IDs (the part of the link between `/d/` and `/edit`), then run `testRead`. No code edit and no redeploy. The Draft Board's season label (`Import!B1` / `B3`) sets the header. |
