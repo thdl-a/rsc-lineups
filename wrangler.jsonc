@@ -16,6 +16,8 @@
   "vars": {
     "DISCORD_CLIENT_ID": "1575678666242007051",
     "GUILD_ID": "395806681994493964",
+    // Draft Board Analyzer data endpoint: only its public ?action=season is called (header season label)
+    "SEASON_URL": "https://script.google.com/macros/s/AKfycbz8Zcn3bIGnRuBvEA4HMwQZ9yhMGfrt48XIa_IlapHrd_8kTC5KL-AE8xLMZpHzSblf/exec",
     "GAS_URL": "https://script.google.com/macros/s/AKfycbw1xMXnIEknqbbRy4X8MDXBZFVJIW3VQxCRzWtSoO7_MhmsC_DEbASTUpxp9k5Kym--/exec"
   }
 }

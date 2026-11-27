@@ -160,12 +160,12 @@ var STATE_KEY = DEMO ? 'rsclt_demo' : 'rsclt', PASS_KEY = DEMO ? 'rsclt_demo_key
 // Data goes through the Worker on this site (it adds the Apps Script key and checks the sign-in).
 var API_URL = '/api/data';
 
-// Season label comes from the Draft Board Analyzer (its public ?action=season) so both apps
-// always show the same season. Falls back to this app's own (Contracts title) season.
-var DBA_URL = 'https://script.google.com/macros/s/AKfycbz8Zcn3bIGnRuBvEA4HMwQZ9yhMGfrt48XIa_IlapHrd_8kTC5KL-AE8xLMZpHzSblf/exec';
+// Season label comes from the Draft Board Analyzer (the Worker asks its public ?action=season
+// and caches it) so both apps always show the same season. Falls back to this app's own
+// (Contracts title) season.
 var DBA_SEASON = '';
 if (!DEMO) try {
-  fetch(DBA_URL+'?action=season').then(function(r){ return r.json(); }).then(function(j){
+  fetch('/api/season').then(function(r){ return r.json(); }).then(function(j){
     DBA_SEASON = String((j && j.season) || '').trim();
     if (DBA_SEASON) { try { renderHeader(); } catch(e){} }
   }).catch(function(){});

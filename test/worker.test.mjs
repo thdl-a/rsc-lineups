@@ -35,7 +35,7 @@ const { default: worker } = await import('../worker.js?' + Date.now());
 const ORIGIN = 'https://app.example';
 const env = {
   DISCORD_CLIENT_ID: 'cid', DISCORD_CLIENT_SECRET: 'csecret', SESSION_SECRET: 'x'.repeat(64),
-  GAS_SECRET: 'gas-key', GAS_URL: 'https://gas.example/exec', GUILD_ID: 'G1', MGMT_ROLE_IDS: 'R1, R2',
+  GAS_SECRET: 'gas-key', GAS_URL: 'https://gas.example/exec', SEASON_URL: 'https://season.example/exec', GUILD_ID: 'G1', MGMT_ROLE_IDS: 'R1, R2',
   ASSETS: {
     fetch: async (req) => {
       const p = new URL(req.url || req).pathname;
@@ -56,6 +56,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (url.endsWith('/oauth2/token/revoke')) return j({});
   if (url.endsWith('/users/@me')) return j({ id: '42', username: scene.username || 'tester' });
   if (url.endsWith('/users/@me/guilds/G1/member')) return scene.member ? j(scene.member) : j({ message: 'Unknown Guild', code: 10004 }, 404);
+  if (url.startsWith('https://season.example')) return scene.season ? scene.season() : j({ season: 'S28' });
   if (url.startsWith('https://gas.example/exec')) {
     if (scene.gas) return scene.gas(url, init);
     return j({ v: 1, season: 'S28', builtAt: 1 });
@@ -287,4 +288,18 @@ test('missing secrets: sign-in says it is not set up', async () => {
   const c = ctx();
   const r = await worker.fetch(new Request(ORIGIN + '/auth/login'), { ...env, DISCORD_CLIENT_SECRET: '' }, c);
   assert.equal(r.status, 503);
+});
+
+test('/api/season: needs sign-in, is cached for visitors, and fails soft', async () => {
+  assert.equal((await go('/api/season')).status, 401);
+  const c = await session({ roles: ['R1'] });
+  const n = () => calls.filter((x) => x.url.startsWith('https://season.example')).length;
+  scene = {};
+  const before = n();
+  const a = await go('/api/season', { headers: { Cookie: c } });
+  assert.equal((await a.json()).season, 'S28');
+  const b = await go('/api/season', { headers: { Cookie: c } });
+  assert.equal(b.headers.get('X-Cache'), 'HIT');
+  assert.equal(n(), before + 1);                       // many visitors, one call to Apps Script
+  assert.match(calls.filter((x) => x.url.startsWith('https://season.example')).pop().url, /[?]action=season$/);
 });

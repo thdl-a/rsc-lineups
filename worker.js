@@ -32,6 +32,7 @@ const SESSION_DAYS = 14;
 const SESSION_COOKIE = '__Host-rsc_session';
 const STATE_COOKIE = '__Host-rsc_oauth';
 const CACHE_SECONDS = 60;
+const SEASON_CACHE_SECONDS = 300;
 const CACHE_PATH = '/__cache/api-data';        // synthetic Cache API key; never served
 const DISCORD_API = 'https://discord.com/api/v10';
 const DISCORD_AUTHORIZE = 'https://discord.com/oauth2/authorize';
@@ -54,6 +55,7 @@ export default {
       if (path.startsWith('/api/')) {
         if (!user) return json({ error: 'auth', message: 'Your sign-in has expired. Sign in again.' }, 401);
         if (path === '/api/data') return await apiData(request, env, url, ctx);
+        if (path === '/api/season' && env.SEASON_URL) return await apiSeason(env);
         if (path === '/api/post' && APP.allowPost) return await apiPost(request, env, url, user, ctx);
         return json({ error: 'not_found' }, 404);
       }
@@ -228,6 +230,23 @@ async function apiData(request, env, url, ctx) {
   if (r.fail) return json({ error: 'upstream', message: r.fail }, 502);
   if (shared && r.good) ctx.waitUntil(cachePut(url, r.text));
   return dataResponse(r.text, 'MISS');
+}
+
+// Season label from another app's public ?action=season (Lineups reads the Draft Board's).
+// Cached for 5 minutes here so every visitor does not call Apps Script. Any failure returns
+// an empty season, and the page then falls back to its own.
+let seasonCache = null; // {body, at}
+async function apiSeason(env) {
+  if (seasonCache && Date.now() - seasonCache.at < SEASON_CACHE_SECONDS * 1000) return dataResponse(seasonCache.body, 'HIT');
+  let season = '';
+  try {
+    const r = await fetch(env.SEASON_URL + '?action=season', { redirect: 'follow' });
+    const o = JSON.parse(await r.text());
+    if (o && typeof o.season === 'string') season = o.season.trim().slice(0, 40);
+  } catch (e) { /* use the page's own season */ }
+  const body = JSON.stringify({ season });
+  if (season) seasonCache = { body, at: Date.now() };
+  return dataResponse(body, 'MISS');
 }
 
 async function apiPost(request, env, url, user, ctx) {
