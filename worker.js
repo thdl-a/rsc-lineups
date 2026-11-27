@@ -259,7 +259,7 @@ async function apiPost(request, env, url, user, ctx) {
   try { body = JSON.parse(text); } catch (e) { body = null; }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ postError: 'Bad request.' }, 400);
   delete body.key;
-  body.postedBy = user.u; // who made the change (recorded on the Trade Block)
+  body.postedBy = user.u; // who made the change (recorded on the Trade Board)
   const r = await callGas(env, '?key=' + encodeURIComponent(env.GAS_SECRET), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
