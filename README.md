@@ -7,7 +7,8 @@ A web page for RSC 3s GMs and management to:
 
 It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copies to make and no sheets to link. Open the page and go.
 
-**Live page:** https://lineups.rscna.workers.dev/
+- **Live page:** https://lineups.rscna.workers.dev/ (sign in with Discord: members of the RSC server)
+- **Live demo:** https://lineups.rscna.workers.dev/demo, open to anyone, invented sample data, no sign-in. The Tier Maker passcode in the demo is `demo`.
 
 ## Using it
 
@@ -53,24 +54,52 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 - The **Theme** button cycles Auto (follows your device), Light and Dark. It is remembered per browser.
 
 ### Header
-- The title shows the current season, e.g. **(S27)**. It comes from the Contracts sheet's title, so renaming or replacing the sheet for S28 updates it automatically.
+- The title shows the current season, e.g. **- S28**. It comes from the Draft Board Analyzer (its public `?action=season`), so both apps always match. If that can't be reached, it falls back to the season in the Contracts sheet's title.
 - **Status pill**: player count. Click it for each tier's min, max, cap and promoted MMR, plus any data notes.
 - **Refresh** re-reads the sheets. The page also refreshes every 5 minutes while in use.
+- Your Discord username and **Log out** are on the right.
 
 ## How it works
 
 ```
-Contracts sheet ─┐
-                 ├─► Google Apps Script (Code.gs) ──JSON──► index.html (GitHub Pages)
-Tier Maker sheet ┘     60 s cache, passcode for Tier Maker     all logic runs in the browser
+                                                         ┌─► Contracts sheet
+Browser ──► Cloudflare Worker (worker.js) ──key──► Apps Script (Code.gs)
+            Discord sign-in, 60 s cache, /demo           └─► Tier Maker sheet (passcode)
 ```
 
-- **`index.html`**: the whole app (one file). Schedules, MMR rules, cap checks and saving all run in the visitor's browser. `API_URL` near the top points at the Apps Script.
-- **Apps Script** (`Code.gs` in this repo, with the two sheet IDs replaced by placeholders; paste the real IDs only in your own Apps Script copy, never in GitHub): a standalone script deployed as a web app (*Execute as: Me*, *Who has access: Anyone*). It reads:
+- **`public/index.html`**: the whole app (one file). Schedules, MMR rules, cap checks and saving all run in the browser. It loads data from `/api/data` on the same site.
+- **`worker.js`**: a Cloudflare Worker with static assets. It handles Discord sign-in, serves the page, proxies data from Apps Script and caches the Contracts data for 60 seconds (**Refresh** bypasses the cache). It also serves `/demo`.
+- **`Code.gs`**: the Apps Script data endpoint, a standalone script deployed as a web app (*Execute as: Me*, *Who has access: Anyone*). It is pasted into script.google.com and not served from here. The two sheet IDs are placeholders in this repo; the real ones go only in your own Apps Script copy. It reads:
   - Contracts → `Contracts` (players, with tier in column J), `Tiers` (min/max/cap), `Count/Keeper` (promoted MMR)
   - Tier Maker → `GM Tier List` (players, tier table, promoted MMR)
 
   Tier Maker data is returned only when the passcode matches the script property `TM_KEY`.
+
+## How auth works
+
+1. A visitor without a session gets a "Sign in with Discord" page. A shared `#c=` link survives the sign-in.
+2. **Sign in** goes to Discord OAuth with the scopes `identify guilds.members.read`. No bot is involved, and nothing is posted to Discord.
+3. On the way back, the Worker checks membership in the RSC server (`GET /users/@me/guilds/{GUILD_ID}/member`). A 200 response means the visitor gets in; a 404 means they are not a member and get "Join the RSC server". The Discord token is revoked right after this check.
+4. The Worker sets an HMAC-signed, `HttpOnly; Secure; SameSite=Lax` cookie holding the Discord id, the username and an expiry 14 days out. Nothing is stored on the server.
+5. Apps Script answers only when the Worker's shared key (`GAS_SECRET`) matches. A direct call to the `/exec` link without the key returns `{"error":"unauthorized"}`.
+6. The Tier Maker passcode (`TM_KEY`) still applies on top of sign-in. The page sends it as `tmkey`, the Worker passes it through, and Apps Script checks it.
+
+| Name | Where |
+|---|---|
+| `DISCORD_CLIENT_ID`, `GUILD_ID`, `GAS_URL` | `wrangler.jsonc` vars |
+| `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `GAS_SECRET` | Worker secrets (`wrangler secret put NAME`) |
+| `GAS_SECRET`, `TM_KEY` | Apps Script > Project Settings > Script properties |
+
+None of the secrets are in this repo.
+
+## Demo mode
+
+`/demo` serves the same page. The page sees `/demo` in its path and switches to demo mode:
+- It loads `public/demo-data.json` (Contracts) and `public/demo-data-tm.json` (Tier Maker, passcode `demo`) and makes no Apps Script calls.
+- Your demo setup is saved separately from your real one.
+- The header shows "Demo – sample data".
+
+The data is invented: fake players with made-up MMRs across all 10 tiers. It is generated by `node scripts/make-demo-data.mjs` and has the same shape as `getData_()` in `Code.gs`.
 
 ## Maintenance
 
@@ -79,13 +108,19 @@ Tier Maker sheet ┘     60 s cache, passcode for Tier Maker     all logic runs 
 | New season / new sheets | In Apps Script, update `CONTRACTS_ID` and `TIER_MAKER_ID` at the top of `Code.gs`, run `testRead`, then **Deploy → Manage deployments → ✏️ → New version**. |
 | Change the Tier Maker passcode | Apps Script → Project Settings → Script properties → edit `TM_KEY`. No redeploy needed. |
 | Change `Code.gs` | Save, then deploy a **New version** (the URL stays the same). |
-| Change the page | Edit `index.html` in this repo. GitHub Pages updates in about a minute. |
+| Change the page or Worker | Edit `public/index.html` or `worker.js` and push to `main`. Workers Builds deploys in about a minute. |
+| Rotate a secret | `npx wrangler secret put NAME`. For `GAS_SECRET`, also update the Script property. Changing `SESSION_SECRET` signs everyone out. |
 | Data looks old | Click **Refresh**. Sheet edits show within about 60 s. |
 | Tab or column layout changes in a source sheet | Update the matching constants and ranges in `Code.gs`. |
+| Demo data | Edit `scripts/make-demo-data.mjs`, run it and commit the two JSON files. |
+| Tests | `node --test test/` (Worker sign-in, access rules and proxy, with Discord and Apps Script mocked). |
 
 ## Files
 
-- `index.html`: the web app
-- `Code.gs`: the Apps Script data endpoint (paste into script.google.com; it is not served by GitHub Pages)
+- `public/index.html`: the web app; `public/rsc-logo.png`: the logo; `public/demo-data*.json`: demo data
+- `worker.js`, `wrangler.jsonc`: the Cloudflare Worker and its config
+- `Code.gs`: the Apps Script data endpoint (paste into script.google.com)
+- `scripts/make-demo-data.mjs`: demo data generator
+- `test/worker.test.mjs`: Worker tests
 - `changelog.txt`: what changed, from the original sheet template to this web app
 - `README.md`: this file

@@ -2,6 +2,22 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.2  SIGN-IN AND DEMO  (11/26/2026)
+======================================================================
+- Sign in with Discord. Anyone in the RSC server gets in; others see
+  "Join the RSC server" and a link to the demo. A sign-in lasts 14 days.
+  Your Discord username and "Log out" show in the header.
+- Shared "Copy link" links still open the exact setup after signing in.
+- The page is now served by a Cloudflare Worker at the same address. The
+  Worker checks the sign-in and fetches the data from Apps Script
+  (Contracts data is cached 60 s; Refresh still re-reads the sheets).
+- The Apps Script /exec link now needs the Worker's key, so the player
+  data is no longer public. The Tier Maker passcode still applies on top.
+- New demo at https://lineups.rscna.workers.dev/demo: invented players,
+  no sign-in, nothing sent anywhere. Tier Maker passcode in the demo: demo.
+- The season now comes from the Draft Board's public season endpoint.
+
+======================================================================
 v2.1  HEADER  (11/26/2026)
 ======================================================================
 - Added the RSC logo (transparent PNG, rsc-logo.png) to the left of the
