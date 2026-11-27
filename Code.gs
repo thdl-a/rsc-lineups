@@ -1,18 +1,21 @@
 /**
- * RSC Lineups & Tryouts – data endpoint for the GitHub Pages web app
+ * RSC Lineups & Tryouts – data endpoint for https://lineups.rscna.workers.dev
  *
- * Reads the Contracts sheet (public data) and the Tier Maker sheet
- * (management only, passcode required) and returns JSON. All lineup and
- * tryout logic runs in the visitor's browser.
+ * Reads the Contracts sheet and the Tier Maker sheet (management only, passcode
+ * required) and returns JSON to the Cloudflare Worker, which handles Discord
+ * sign-in and serves the page. All lineup and tryout logic runs in the browser.
  *
- * URLs (append to the /exec URL):
- *   ?action=data                      Contracts data
- *   ?action=data&src=tm&key=PASSCODE  Tier Maker data (passcode required)
+ * URLs (append to the /exec URL; every call needs key=GAS_SECRET):
+ *   ?action=data&key=GAS_SECRET                        Contracts data
+ *   ?action=data&key=GAS_SECRET&src=tm&tmkey=PASSCODE  Tier Maker data (passcode required)
  *   add &force=1 to skip the 60 s cache (Refresh button)
+ *   without the right key: {error:'unauthorized'}
  *
  * Deploy: Deploy > New deployment > Web app
  *         Execute as: Me    Who has access: Anyone
- * Passcode: Project Settings > Script properties > add  TM_KEY = <your passcode>
+ * Script properties (Project Settings > Script properties; never in this file):
+ *   GAS_SECRET = same value as the Worker's GAS_SECRET secret
+ *   TM_KEY     = the Tier Maker passcode
  */
 
 // ---- Settings -------------------------------------------------------------
@@ -59,13 +62,20 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   let out;
   try {
-    if (p.action !== 'data') out = JSON.stringify({ ok: true, msg: 'RSC Lineups & Tryouts data endpoint' });
-    else if (p.src === 'tm') out = tierMakerGate_(p.key, p.force === '1');
+    if (!authorized_(p.key)) out = JSON.stringify({ error: 'unauthorized' });
+    else if (p.action !== 'data') out = JSON.stringify({ ok: true, msg: 'RSC Lineups & Tryouts data endpoint' });
+    else if (p.src === 'tm') out = tierMakerGate_(p.tmkey, p.force === '1');
     else out = getData_('c', p.force === '1');
   } catch (err) {
     out = JSON.stringify({ error: 'server', message: String(err && err.message || err) });
   }
   return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
+}
+
+// The Worker sends the shared key (Script property GAS_SECRET). No property set = nobody gets in.
+function authorized_(key) {
+  const want = PropertiesService.getScriptProperties().getProperty('GAS_SECRET');
+  return !!want && !!key && sameText_(String(key), want);
 }
 
 // Tier Maker is only returned with the right passcode (Script property TM_KEY).
@@ -287,4 +297,5 @@ function testRead() {
     }
   });
   Logger.log('Passcode set: %s', PropertiesService.getScriptProperties().getProperty('TM_KEY') ? 'yes' : 'NO (add TM_KEY in Script properties)');
+  Logger.log('Worker key set: %s', PropertiesService.getScriptProperties().getProperty('GAS_SECRET') ? 'yes' : 'NO (add GAS_SECRET in Script properties)');
 }

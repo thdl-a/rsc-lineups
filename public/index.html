@@ -157,17 +157,15 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
 var DEMO = /^\/demo(\/|$)/.test(location.pathname);
 var STATE_KEY = DEMO ? 'rsclt_demo' : 'rsclt', PASS_KEY = DEMO ? 'rsclt_demo_key' : 'rsclt_key';
 
-// ======================================================================
-// Paste your Apps Script web app URL here (ends in /exec)
-var API_URL = 'https://script.google.com/macros/s/AKfycbw1xMXnIEknqbbRy4X8MDXBZFVJIW3VQxCRzWtSoO7_MhmsC_DEbASTUpxp9k5Kym--/exec';
-// ======================================================================
+// Data goes through the Worker on this site (it adds the Apps Script key and checks the sign-in).
+var API_URL = '/api/data';
 
-// Season label comes from the Draft Board Analyzer so both apps always show the same season.
-// Falls back to this app's own (Contracts title) season if the Draft Board can't be reached.
+// Season label comes from the Draft Board Analyzer (its public ?action=season) so both apps
+// always show the same season. Falls back to this app's own (Contracts title) season.
 var DBA_URL = 'https://script.google.com/macros/s/AKfycbz8Zcn3bIGnRuBvEA4HMwQZ9yhMGfrt48XIa_IlapHrd_8kTC5KL-AE8xLMZpHzSblf/exec';
 var DBA_SEASON = '';
 if (!DEMO) try {
-  fetch(DBA_URL+'?action=data').then(function(r){ return r.json(); }).then(function(j){
+  fetch(DBA_URL+'?action=season').then(function(r){ return r.json(); }).then(function(j){
     DBA_SEASON = String((j && j.season) || '').trim();
     if (DBA_SEASON) { try { renderHeader(); } catch(e){} }
   }).catch(function(){});
@@ -340,9 +338,19 @@ function index(raw){
   return d;
 }
 function apiUrl(src, force){
-  var u = API_URL + '?action=data' + (src==='tm' ? '&src=tm&key='+encodeURIComponent(TM_KEY) : '') + (force?'&force=1':'') + '&t=' + Date.now();
-  return u;
+  var q = [];
+  if (src==='tm') q.push('src=tm', 'tmkey='+encodeURIComponent(TM_KEY));
+  if (force) q.push('force=1');
+  return API_URL + (q.length ? '?'+q.join('&') : '');
 }
+// 401 from /api/* = the sign-in expired. Other errors arrive as JSON {error, message}.
+function apiText(r){
+  return r.text().then(function(t){
+    if (r.status===401) { var e = new Error('Your sign-in has expired.'); e.auth = true; throw e; }
+    return t;
+  });
+}
+function signInLink(){ return '<a href="/auth/login?next='+encodeURIComponent(location.pathname+location.search+location.hash)+'">Sign in again</a>'; }
 // Demo: same JSON shapes as getData_() in Code.gs, read from files next to the page.
 function demoFetch(src){
   if (src==='tm' && TM_KEY!=='demo') return new Promise(function(res){ setTimeout(function(){ res(JSON.stringify({error:'bad_key'})); }, 400); });
@@ -352,10 +360,9 @@ function demoFetch(src){
 }
 function load(src, force){
   if (loading[src]) return;
-  if (!DEMO && !/^https:\/\//.test(API_URL)) { $('view').innerHTML = '<div class="banner bad">Setup needed: paste the Apps Script /exec URL into <b>API_URL</b> at the top of the script in index.html.</div>'; return; }
   if (src==='tm' && !TM_KEY) return;
   loading[src] = true; setBusy();
-  (DEMO ? demoFetch(src) : fetch(apiUrl(src, force)).then(function(r){ return r.text(); })).then(function(text){
+  (DEMO ? demoFetch(src) : fetch(apiUrl(src, force), {cache:'no-store'}).then(apiText)).then(function(text){
     loading[src] = false; setBusy();
     var raw; try { raw = JSON.parse(text); } catch(e) { throw new Error('Unexpected reply from the data endpoint'); }
     if (raw.error) {
@@ -376,7 +383,8 @@ function load(src, force){
   }).catch(function(err){
     loading[src] = false; setBusy();
     var msg = esc(err && err.message || err);
-    if (src==='tm') { tmMsg = 'Could not reach the Tier Maker data: '+msg; render(); return; }
+    if (err && err.auth) msg += ' '+signInLink()+'.';
+    if (src==='tm') { tmMsg = err && err.auth ? 'Your sign-in has expired. Reload the page.' : 'Could not reach the Tier Maker data: '+(err && err.message || err); render(); return; }
     if (!DATA.c) $('view').innerHTML = '<div class="banner bad">Could not load player data: '+msg+'. Try Refresh in a minute.</div>';
     else { $('checks').className=''; $('checks').innerHTML = '<div class="banner bad">Refresh failed: '+msg+'. Showing data from '+timeStr(DATA.c.builtAt)+'.</div>'; }
   });
