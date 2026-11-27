@@ -210,8 +210,8 @@ function tryoutSchedule(n, opt){
 function blanks(){ var a=[]; for (var i=0;i<SLOTS;i++) a.push(''); return a; }
 var S = {
   tab:'L',
-  L:{t:'', p:blanks(), m:true, pl:[]},            // pl: played lineups as sorted slot keys, e.g. "136"
-  T:{t:'', src:'c', sch:'7', p:blanks(), m:true, w:{}}  // w: {"7|7": {"1":"b","2":"o"}, "6": {...}}
+  L:{t:'', p:blanks(), m:true, lo:false, pl:[]},            // pl: played lineups as sorted slot keys, e.g. "136"
+  T:{t:'', src:'c', sch:'7', p:blanks(), m:true, lo:false, w:{}}  // w: {"7|7": {"1":"b","2":"o"}, "6": {...}}
 };
 var DATA = {c:null, tm:null};
 var TM_KEY = '';
@@ -222,7 +222,7 @@ function sanitize(){
   ['L','T'].forEach(function(k){
     var p = Array.isArray(S[k].p) ? S[k].p.slice(0,SLOTS).map(function(x){return String(x==null?'':x);}) : [];
     while (p.length<SLOTS) p.push('');
-    S[k].p = p; S[k].m = S[k].m!==false; S[k].t = String(S[k].t||'');
+    S[k].p = p; S[k].m = S[k].m!==false; S[k].lo = S[k].lo===true; S[k].t = String(S[k].t||'');
   });
   if (!Array.isArray(S.L.pl)) S.L.pl = [];
   if (!S.T.w || typeof S.T.w!=='object') S.T.w = {};
@@ -274,6 +274,9 @@ function decodeState(s){
     else if (ms) { merge(S, decodeState(ms[1])); fromHash = true; }
   } catch(e) {}
   if (!fromHash) { try { merge(S, JSON.parse(localStorage.getItem(STATE_KEY) || 'null')); } catch(e) {} }
+  else {   // a link carries the setup, but not this personal preference: keep your own
+    try { var mine = JSON.parse(localStorage.getItem(STATE_KEY) || 'null') || {}; ['L','T'].forEach(function(k){ if (mine[k]) S[k].lo = mine[k].lo===true; }); } catch(e) {}
+  }
   try { TM_KEY = localStorage.getItem(PASS_KEY) || ''; } catch(e) {}
   sanitize();
 })();
@@ -488,6 +491,7 @@ function renderL(){
     '<span class="k">Tier min</span><span class="v">'+(t?esc(t.min):'')+'</span>'+
     '<span class="k">Tier max</span><span class="v">'+(t?esc(t.max):'')+'</span>'+
     '<span class="k">Show MMR</span><span><input type="checkbox" data-k="L.m"'+(S.L.m?' checked':'')+'></span>'+
+    tierBox('L','c')+
   '</div></div>';
   // players
   h += '<div class="box"><h3>Players <span class="note">(5–7)</span></h3><div class="phead"><span></span><span>Player</span><span title="True MMR">Base</span><span title="Effective MMR: what a promoted player counts as in the selected tier">Eff.</span><span>Played</span></div>';
@@ -572,6 +576,7 @@ function renderT(){
     '<span class="k">Tier max</span><span class="v">'+(t?esc(t.max):'')+'</span>'+
     '<span class="k">7-player schedule</span><select data-k="T.sch">'+opts(SCHED_OPTS, S.T.sch)+'</select>'+
     '<span class="k">Show MMR</span><span><input type="checkbox" data-k="T.m"'+(S.T.m?' checked':'')+'></span>'+
+    tierBox('T',src)+
   '</div>';
   if (src==='tm') {
     if (!d) h += '<div class="lock"><div class="note" style="margin-bottom:6px">Tier Maker is management only. Enter the passcode.'+(DEMO?' In the demo it is <b>demo</b>.':'')+'</div>'+
@@ -641,6 +646,35 @@ function copyT(){
   copyText(lines.join('\n'));
 }
 
+// ---------- "selected tier and below" filter ----------
+// Only for the Contracts source: Tier Maker has no tier per player. Tiers are listed highest first.
+function tierFilter(k){
+  var src = k==='L' ? 'c' : S.T.src, d = DATA[src];
+  if (!S[k].lo || src!=='c' || !d || !S[k].t) return null;
+  var sel = d.tierNames.indexOf(S[k].t);
+  return sel<0 ? null : {d:d, sel:sel};
+}
+function aboveTier(f, p){ var i = f.d.tierNames.indexOf(p.tr); return i>=0 && i<f.sel; }   // higher tier than the selected one
+function noTier(f, p){ return f.d.tierNames.indexOf(p.tr)<0; }                             // no (known) tier listed
+// Takes players above the selected tier out of their slots (and out of the played lineups).
+function enforceTier(k){
+  var f = tierFilter(k); if (!f) return;
+  var gone = [];
+  S[k].p.forEach(function(n, i){
+    var nm = n.trim(), p = nm && f.d.by[nm];
+    if (p && aboveTier(f, p)) {
+      gone.push(nm); S[k].p[i] = '';
+      if (k==='L') S.L.pl = S.L.pl.filter(function(key){ return key.indexOf(String(i+1))<0; });
+    }
+  });
+  if (gone.length) toast('Removed (above '+S[k].t+'): '+gone.join(', '));
+}
+function tierBox(k, src){
+  var off = k==='T' && src!=='c';
+  return '<label class="k" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;'+(off?'opacity:.55':'cursor:pointer')+'" title="List only players of the selected tier and the tiers below it">'+
+    '<input type="checkbox" data-k="'+k+'.lo"'+(S[k].lo&&!off?' checked':'')+(off?' disabled':'')+'>Only show players of the selected tier and below'+(off?' <span class="note">(Contracts source only)</span>':'')+'</label>';
+}
+
 // ---------- player list (custom dropdown) ----------
 function commitSlot(k, i, raw){
   var src = k==='L' ? 'c' : S.T.src;
@@ -672,13 +706,14 @@ function sugShow(input, unfiltered){
   var q = input.value.trim().toLowerCase();
   if (unfiltered) q = '';
   var used = {}; S[k].p.forEach(function(n,j){ if (j!==i-1 && n.trim()) used[n.trim()] = 1; });
-  var starts = [], has = [];
+  var f = tierFilter(k), starts = [], has = [], nStarts = [], nHas = [];
   d.players.forEach(function(p){
     if (used[p.n]) return;
-    var l = p.n.toLowerCase();
-    if (!q || l.indexOf(q)===0) starts.push(p); else if (l.indexOf(q)>0) has.push(p);
+    if (f && aboveTier(f, p)) return;
+    var l = p.n.toLowerCase(), low = f && noTier(f, p);   // players with no tier go last
+    if (!q || l.indexOf(q)===0) (low ? nStarts : starts).push(p); else if (l.indexOf(q)>0) (low ? nHas : has).push(p);
   });
-  var all = starts.concat(has);
+  var all = starts.concat(has, nStarts, nHas);
   sug.input = input; sug.items = all.slice(0, 80); sug.at = q && sug.items.length ? 0 : -1;
   var el = sugEl(), showT = !!d.hasTier;
   var head = '<div class="sh"><span>Player</span>'+(showT?'<span>Tier</span>':'')+'</div>';
@@ -729,7 +764,7 @@ document.addEventListener('keydown', function(e){
   } else if (e.key==='Enter') {
     e.preventDefault();
     if (sug.input && sug.at>=0) sugPick(sug.at);
-    else { var k=el.dataset.tabk, i=+el.dataset.slot; el.value = canon(k==='L'?'c':S.T.src, el.value); sugHide(); commitSlot(k,i,el.value); quietly(function(){ render(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }); sugHide(); }
+    else { var k=el.dataset.tabk, i=+el.dataset.slot; el.value = canon(k==='L'?'c':S.T.src, el.value); sugHide(); commitSlot(k,i,el.value); enforceTier(k); quietly(function(){ render(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }); sugHide(); }
   } else if (e.key==='Escape') sugHide();
 });
 window.addEventListener('resize', sugPos);
@@ -741,6 +776,7 @@ document.addEventListener('change', function(e){
   var el = e.target; lastActivity = Date.now();
   if (el.dataset.slot) {
     commitSlot(el.dataset.tabk, +el.dataset.slot, el.value);
+    enforceTier(el.dataset.tabk);
     setTimeout(function(){   // let focus move to the next field first
       var was = sug.input ? sug.input.dataset.tabk+'.'+sug.input.dataset.slot : '';
       quietly(render);
@@ -755,6 +791,8 @@ document.addEventListener('change', function(e){
     var val = el.type==='checkbox' ? el.checked : el.value;
     setPath(el.dataset.k, val);
     if (el.dataset.k==='T.src') { S.T.t=''; if (val==='tm' && TM_KEY && !DATA.tm) load('tm'); }
+    if (el.dataset.k==='L.t' || el.dataset.k==='L.lo') enforceTier('L');
+    if (el.dataset.k==='T.t' || el.dataset.k==='T.lo') enforceTier('T');
     render();
   }
 });

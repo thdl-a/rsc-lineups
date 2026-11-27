@@ -16,6 +16,11 @@ v2.2  SIGN-IN AND DEMO  (11/26/2026)
 - New demo at https://lineups.rscna.workers.dev/demo: invented players,
   no sign-in, nothing sent anywhere. Tier Maker passcode in the demo: demo.
 - The season now comes from the Draft Board's public season endpoint.
+- New checkbox in Settings (Lineups and Tryouts): "Only show players of the
+  selected tier and below". With Challenger selected, the list offers only
+  Challenger, Prospect, Contender and Amateur players; players with no tier
+  listed come last. Players already entered who are above the tier are removed
+  when it is on. Not available for the Tier Maker source (no tier data).
 - The Contracts and Tier Maker sheet IDs are now Script Properties instead of
   lines in Code.gs. A new season is a settings edit, with no code change or redeploy.
 - Tier Maker: a helper table below the tier table repeated six tier names; they

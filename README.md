@@ -49,6 +49,7 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 - Each row shows the player's name and **tier** (Contracts column J). Tier Maker has no tier column, so it shows names only.
 - In the Players box, each player has **Base** (true MMR) and **Eff.** (the MMR they count at if promoted into the selected tier; blank if not promoted) beside Played (Lineups) or W–L (Tryouts).
 - Show MMR off hides the numbers.
+- **Only show players of the selected tier and below** (Settings, Lineups and Tryouts; Contracts source only): with a tier selected, the list offers only that tier and the tiers under it. Players with no tier listed come last. Turning it on, or changing the tier, takes any entered players above that tier out of their slots (a message names them). Your choice is remembered in your browser and is not part of shared links.
 
 ### Theme
 - The **Theme** button cycles Auto (follows your device), Light and Dark. It is remembered per browser.
