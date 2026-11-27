@@ -12,6 +12,7 @@ const REQUIRE_ROLE = /requireRole:\s*true/.test(SRC);
 const ALLOW_POST = /allowPost:\s*true/.test(SRC);
 const PASS_SRC = /passParams:[^\n]*'src'/.test(SRC);
 const IDENTITY = /identity:\s*true/.test(SRC);
+const SESSION_DAYS = Number(/sessionDays:\s*(\d+)/.exec(SRC)[1]);
 const DENIED_ROLE = /deniedNoRole:\s*'([^']*)'/.exec(SRC)[1];   // the message this app shows to members without the role
 
 // ---- Workers runtime stubs -------------------------------------------------------
@@ -164,7 +165,7 @@ test('matrix: in server with any one of the Management roles', async () => {
     assert.equal(r.status, 302, role);
     assert.equal(r.headers.get('Location'), '/');
     const c = setCookies(r).find((x) => x.startsWith('__Host-rsc_session='));
-    assert.match(c, /Max-Age=1209600/); // 14 days
+    assert.match(c, new RegExp('Max-Age=' + SESSION_DAYS * 86400));   // this apps own sessionDays
   }
 });
 

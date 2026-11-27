@@ -14,7 +14,7 @@
 //
 // The session is an HMAC-signed cookie (Discord id, username, expiry, and role ids when APP.identity). Nothing is stored
 // server-side. Membership and roles are checked at login only, so removing someone's role
-// takes effect when their session expires (SESSION_DAYS).
+// takes effect when their session expires (APP.sessionDays).
 
 // ---- Per-app settings: the ONLY part that differs between the DBA and Lineups. ----
 // Everything below this block is identical in both repos; copy fixes across as they are.
@@ -26,6 +26,7 @@ const APP = {
   passParams: ['force', 'src', 'tmkey'], // src=tm&tmkey=<Tier Maker passcode> is checked by Apps Script
   maintenance: false,               // no maintenance mode in this app
   adminRoleId: '',
+  sessionDays: 14,                   // how long a sign-in lasts; roles are read again at the next sign-in
   who: 'Open to members of the RSC Discord server.',
   deniedNoServer: 'You are not in the RSC Discord server.',
   deniedNoRole: '',
@@ -34,7 +35,6 @@ const APP = {
 
 // ---- Constants -------------------------------------------------------------
 const JOIN_URL = 'https://discord.gg/rsc';   // shown to people who are not in the RSC server
-const SESSION_DAYS = 14;
 const SESSION_COOKIE = '__Host-rsc_session';
 const STATE_COOKIE = '__Host-rsc_oauth';
 const CACHE_SECONDS = 60;
@@ -165,10 +165,10 @@ async function callback(request, env, url, ctx) {
   if (denied) {
     return html(deniedPage(name, denied, !member), 403, [clearState, cookie(SESSION_COOKIE, '', 0)]);
   }
-  const payload = { id: String(me.id), u: name, exp: Date.now() + SESSION_DAYS * 86400000 };
+  const payload = { id: String(me.id), u: name, exp: Date.now() + APP.sessionDays * 86400000 };
   if (APP.identity) payload.r = (Array.isArray(member.roles) ? member.roles : []).map(String).slice(0, MAX_ROLES);
   const session = await signSession(env, payload);
-  return redirect(next, [clearState, cookie(SESSION_COOKIE, session, SESSION_DAYS * 86400)]);
+  return redirect(next, [clearState, cookie(SESSION_COOKIE, session, APP.sessionDays * 86400)]);
 }
 
 // Access passes if the member has ANY of the comma-separated role ids. An empty list lets nobody in.
