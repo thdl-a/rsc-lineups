@@ -356,3 +356,87 @@ test('/api/me does not exist for the app that does not use it', { skip: IDENTITY
   const c = await session({ roles: ['R1'] });
   assert.equal((await go('/api/me', { headers: { Cookie: c } })).status, 404);
 });
+
+// ---- maintenance mode ------------------------------------------------------------------------
+const MAINT = /maintenance:\s*true/.test(SRC);
+const ADMIN_ROLE = (/adminRoleId:\s*'(\d+)'/.exec(SRC) || [])[1];
+// A fresh copy of the Worker has an empty flag memory, so each test starts from "not read yet".
+async function freshWorker() { return (await import('../worker.js?m' + Math.random())).default; }
+async function goWith(w, path, opts = {}) {
+  const c = ctx(); const res = await w.fetch(new Request(ORIGIN + path, opts), env, c); await c.done(); return res;
+}
+const maintCalls = () => calls.filter((c) => /"action":"maint"/.test(String(c.init && c.init.body)));
+const flag = (on) => ({ gas: (url, init) => new RealResponse(JSON.stringify(/"action":"maint"/.test(String(init && init.body)) ? { maintenance: on } : { tiers: [], posts: [], v: 1 })) });
+
+test('maintenance on: everyone except Admins gets "back soon" (page 503, API 503); Admins get in; sign-in still works', { skip: !MAINT }, async () => {
+  const gm = await session({ roles: ['R2'] }, { username: 'gm' });
+  const admin = await session({ roles: ['R1', ADMIN_ROLE] }, { username: 'boss' });
+  const w = await freshWorker();
+  scene = flag(true);
+  const page = await goWith(w, '/', { headers: { Cookie: gm } });
+  assert.equal(page.status, 503);
+  assert.match(await page.text(), /down for a short update/);
+  const api = await goWith(w, '/api/data', { headers: { Cookie: gm } });
+  assert.equal(api.status, 503);
+  const o = await api.json(); assert.equal(o.error, 'maintenance'); assert.match(o.message, /short update/);
+  assert.equal((await goWith(w, '/api/post', { method: 'POST', body: '{}', headers: { Cookie: gm, Origin: ORIGIN } })).status, 503);
+  assert.equal((await goWith(w, '/api/me', { headers: { Cookie: gm } })).status, 503);
+  assert.equal((await goWith(w, '/', { headers: { Cookie: admin } })).status, 200);
+  assert.equal((await goWith(w, '/api/data', { headers: { Cookie: admin } })).status, 200);
+  assert.equal((await goWith(w, '/api/me', { headers: { Cookie: admin } })).status, 200);
+  assert.equal((await goWith(w, '/')).status, 401);                                   // signed out: the sign-in page
+  assert.equal((await goWith(w, '/auth/login')).status, 302);                          // and signing in works
+  assert.equal((await goWith(w, '/demo/')).status, 200);
+});
+
+test('maintenance off, or the flag cannot be read: the site stays up', { skip: !MAINT }, async () => {
+  const gm = await session({ roles: ['R2'] }, { username: 'gm' });
+  let w = await freshWorker(); scene = flag(false);
+  assert.equal((await goWith(w, '/', { headers: { Cookie: gm } })).status, 200);
+  w = await freshWorker(); scene = { gas: () => { throw new Error('Apps Script is down'); } };
+  assert.equal((await goWith(w, '/', { headers: { Cookie: gm } })).status, 200);
+  w = await freshWorker(); scene = { gas: () => new RealResponse('<html>not json</html>') };
+  assert.equal((await goWith(w, '/', { headers: { Cookie: gm } })).status, 200);
+  w = await freshWorker(); scene = { gas: () => new RealResponse(JSON.stringify({ error: 'unauthorized' })) };
+  assert.equal((await goWith(w, '/', { headers: { Cookie: gm } })).status, 200);
+});
+
+test('maintenance: the flag is read with the key, and remembered for a few seconds', { skip: !MAINT }, async () => {
+  const gm = await session({ roles: ['R2'] }, { username: 'gm' });
+  const w = await freshWorker(); scene = flag(false);
+  calls.length = 0;
+  for (let i = 0; i < 4; i++) await goWith(w, '/', { headers: { Cookie: gm } });
+  assert.equal(maintCalls().length, 1);
+  assert.equal(new URL(maintCalls()[0].url).searchParams.get('key'), 'gas-key');
+});
+
+test('maintenance: an app without it never asks Apps Script about it', { skip: MAINT }, async () => {
+  const c = await session({ roles: ['R1'] });
+  scene = flag(true);
+  calls.length = 0;
+  assert.equal((await go('/', { headers: { Cookie: c } })).status, 200);
+  assert.equal(maintCalls().length, 0);
+});
+
+// ---- only real board data is shared through the cache ----------------------------------------
+test('an Admin reply (AGM list, backups) is passed on but never cached as board data', { skip: !(ALLOW_POST && IDENTITY) }, async () => {
+  const c = await session({ roles: ['R1'] }, { username: 'a' });
+  const w = await freshWorker();
+  scene = { gas: () => new RealResponse(JSON.stringify({ agms: [{ id: '1' }] })) };
+  const post = await goWith(w, '/api/post', { method: 'POST', body: JSON.stringify({ action: 'agmlist' }), headers: { Cookie: c, Origin: ORIGIN } });
+  assert.deepEqual((await post.json()).agms, [{ id: '1' }]);
+  scene = { gas: () => new RealResponse(JSON.stringify({ tiers: [], posts: [], v: 1 })) };
+  calls.length = 0;
+  const data = await (await goWith(w, '/api/data', { headers: { Cookie: c } })).json();
+  assert.ok(Array.isArray(data.tiers), 'the board data, not the AGM list');
+  assert.equal(calls.filter((x) => x.url.startsWith('https://gas.example')).length >= 1, true);
+});
+test('a Trade Board save reply (the fresh board) is still shared through the cache', { skip: !(ALLOW_POST && IDENTITY) }, async () => {
+  const c = await session({ roles: ['R1'] }, { username: 'a' });
+  const w = await freshWorker();
+  scene = { gas: () => new RealResponse(JSON.stringify({ tiers: [], posts: [['fresh']], v: 1 })) };
+  await goWith(w, '/api/post', { method: 'POST', body: JSON.stringify({ action: 'add' }), headers: { Cookie: c, Origin: ORIGIN } });
+  scene = { gas: () => { throw new Error('should have been served from the cache'); } };
+  const data = await (await goWith(w, '/api/data', { headers: { Cookie: c } })).json();
+  assert.deepEqual(data.posts, [['fresh']]);
+});

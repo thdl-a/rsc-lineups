@@ -24,6 +24,8 @@ const APP = {
   allowPost: false,                 // this app only reads
   identity: false,                  // no role ids in the session, no /api/me
   passParams: ['force', 'src', 'tmkey'], // src=tm&tmkey=<Tier Maker passcode> is checked by Apps Script
+  maintenance: false,               // no maintenance mode in this app
+  adminRoleId: '',
   who: 'Open to members of the RSC Discord server.',
   deniedNoServer: 'You are not in the RSC Discord server.',
   deniedNoRole: '',
@@ -37,6 +39,7 @@ const SESSION_COOKIE = '__Host-rsc_session';
 const STATE_COOKIE = '__Host-rsc_oauth';
 const CACHE_SECONDS = 60;
 const SEASON_CACHE_SECONDS = 300;
+const MAINT_CACHE_SECONDS = 10;                // how long the maintenance flag is remembered
 const CACHE_PATH = '/__cache/api-data';        // synthetic Cache API key; never served
 const DISCORD_API = 'https://discord.com/api/v10';
 const DISCORD_AUTHORIZE = 'https://discord.com/oauth2/authorize';
@@ -56,6 +59,11 @@ export default {
       if (path === '/auth/logout') return logout(url);
 
       const user = await readSession(request, env);
+      // Maintenance mode: everyone except Admins gets a "back soon" answer. Nothing is deleted; this only closes the door.
+      if (user && APP.maintenance && !isAdmin(user) && await maintenanceOn(env)) {
+        if (path.startsWith('/api/')) return json({ error: 'maintenance', postError: MAINT_TEXT, message: MAINT_TEXT }, 503);
+        return html(messagePage('Back soon', '<p>' + esc(APP.title) + ' is down for a short update. Nothing has been lost; your Trade Board entries are safe.</p><p class="small">Please check back in a little while.</p>'), 503);
+      }
       if (path.startsWith('/api/')) {
         if (!user) return json({ error: 'auth', message: 'Your sign-in has expired. Sign in again.' }, 401);
         if (path === '/api/data') return await apiData(request, env, url, ctx);
@@ -276,8 +284,28 @@ async function apiPost(request, env, url, user, ctx) {
     body: JSON.stringify(body)
   });
   if (r.fail) return json({ postError: r.fail }, 502);
-  if (r.good) ctx.waitUntil(cachePut(url, r.text)); // a save returns fresh data: share it
+  // A Trade Board save returns the fresh board: share it. Admin replies (AGM list, backups ...) are not board data.
+  if (r.good && isBoardData(r.text)) ctx.waitUntil(cachePut(url, r.text));
   return dataResponse(r.text, 'POST');
+}
+
+// Maintenance flag, read from Apps Script and remembered for MAINT_CACHE_SECONDS. If it cannot be read the site stays up.
+const MAINT_TEXT = 'The site is down for a short update. Try again in a little while.';
+let maintCache = null; // {on, at}
+function isAdmin(user) { return !!APP.adminRoleId && Array.isArray(user && user.r) && user.r.indexOf(APP.adminRoleId) >= 0; }
+async function maintenanceOn(env) {
+  if (maintCache && Date.now() - maintCache.at < MAINT_CACHE_SECONDS * 1000) return maintCache.on;
+  let on = false;
+  if (env.GAS_URL && env.GAS_SECRET) {
+    const r = await callGas(env, '?key=' + encodeURIComponent(env.GAS_SECRET), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'maint' })
+    });
+    if (!r.fail) { try { on = JSON.parse(r.text).maintenance === true; } catch (e) { on = false; } }
+  }
+  maintCache = { on, at: Date.now() };
+  return on;
 }
 
 // Who the signed-in person may post for: {who: {canPost, gm, franchise, how, why}}. Never cached.
@@ -291,6 +319,10 @@ async function apiMe(request, env, user) {
   });
   if (r.fail) return json({ error: 'upstream', message: r.fail }, 502);
   return dataResponse(r.text, 'ME');
+}
+
+function isBoardData(text) {
+  try { return Array.isArray(JSON.parse(text).tiers); } catch (e) { return false; }
 }
 
 // Calls Apps Script. Returns {text, good} (good = real data, safe to cache) or {fail: message}.
