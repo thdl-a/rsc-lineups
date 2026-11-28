@@ -85,6 +85,8 @@ Browser ──► Cloudflare Worker (worker.js) ──key──► Apps Script (
 5. Apps Script answers only when the Worker's shared key (`GAS_SECRET`) matches. A direct call to the `/exec` link without the key returns `{"error":"unauthorized"}`.
 6. The Tier Maker opens one of two ways. **By role:** the session also keeps the member's Discord role ids; a member with any role in `TM_ROLE_IDS` (Admin, General Manager, Assistant GM) needs no passcode: the Worker tells Apps Script `tmrole=1` (only the Worker can set it; it drops anything the browser sends, and Apps Script honours it only with the shared `GAS_SECRET`). **By passcode:** everyone else enters `TM_KEY`; the page sends it as `tmkey`, the Worker passes it through, and Apps Script checks it. Roles are read at sign-in (every 3 days), so a changed role takes effect at the next sign-in.
 
+**Security headers.** Every response gets `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and `X-Frame-Options: DENY`. Pages also get a strict `Content-Security-Policy`: scripts run only if they carry a nonce that is new for every response (the Worker stamps it on each `<script>`), and the page may connect, load images and submit forms only to this site; no other site may frame it. It is a second lock behind the page's own escaping. Keep new page code inside `<script>` tags: inline `onclick="..."` handlers, `javascript:` links and outside URLs are blocked (a test in `test/worker.test.mjs` checks this). Because the nonce changes, pages are sent with `Cache-Control: no-store`.
+
 | Name | Where |
 |---|---|
 | `DISCORD_CLIENT_ID`, `GUILD_ID`, `GAS_URL`, `TM_ROLE_IDS` | `wrangler.jsonc` vars |

@@ -2,6 +2,13 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.5.1  SECURITY HEADERS  (11/27/2026)
+======================================================================
+- Added a second lock against harmful code. The site now tells your browser to run only the site's own
+  code, to send data only to this site, and to refuse to be shown inside another website. Nothing looks or
+  works differently.
+
+======================================================================
 v2.5  TIDIER HEADER: ACCOUNT MENU  (11/27/2026)
 ======================================================================
 - Your Discord username is now a button at the right end of the header. It opens a small menu with who you

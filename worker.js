@@ -50,40 +50,73 @@ const MAX_ROLES = 100;          // role ids kept in the session cookie
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const path = url.pathname;
-    try {
-      if (path === '/demo') return Response.redirect(url.origin + '/demo/' + url.search, 302);
-      if (path.startsWith('/demo/')) return demoAsset(request, env, url);
-      if (path === '/rsc-logo.png' || path === '/favicon.ico') return env.ASSETS.fetch(request); // used by the sign-in page
-      if (path === '/auth/login') return login(env, url);
-      if (path === '/auth/callback') return await callback(request, env, url, ctx);
-      if (path === '/auth/logout') return logout(url);
-
-      const user = await readSession(request, env);
-      // Maintenance mode: everyone except Admins gets a "back soon" answer. Nothing is deleted; this only closes the door.
-      if (user && APP.maintenance && !isAdmin(user) && await maintenanceOn(env)) {
-        if (path.startsWith('/api/')) return json({ error: 'maintenance', postError: MAINT_TEXT, message: MAINT_TEXT }, 503);
-        return html(messagePage('Back soon', '<p>' + esc(APP.title) + ' is down for a short update. Nothing has been lost; your Trade Board entries are safe.</p><p class="small">Please check back in a little while.</p>'), 503);
-      }
-      if (path.startsWith('/api/')) {
-        if (!user) return json({ error: 'auth', message: 'Your sign-in has expired. Sign in again.' }, 401);
-        if (path === '/api/data') return await apiData(request, env, url, ctx, user);
-        if (path === '/api/access' && APP.tmRoles) return json({ tm: tmAllowed(env, user) });
-        if (path === '/api/season' && env.SEASON_URL) return await apiSeason(env);
-        if (path === '/api/post' && APP.allowPost) return await apiPost(request, env, url, user, ctx);
-        if (path === '/api/me' && APP.identity) return await apiMe(request, env, user);
-        return json({ error: 'not_found' }, 404);
-      }
-      if (!user) return html(signInPage(url.pathname + url.search), 401);
-      return withUser(await env.ASSETS.fetch(stripConditional(request)), user);
-    } catch (err) {
-      console.error('worker error', err && err.stack || err);
-      if (path.startsWith('/api/')) return json({ error: 'server', postError: 'Server error, try again in a minute.', message: 'Server error, try again in a minute.' }, 500);
-      return html(messagePage('Something went wrong', '<p>Please try again in a minute.</p>'), 500);
-    }
+    return secure(await route(request, env, ctx), randomHex(16));
   }
 };
+
+async function route(request, env, ctx) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  try {
+    if (path === '/demo') return Response.redirect(url.origin + '/demo/' + url.search, 302);
+    if (path.startsWith('/demo/')) return demoAsset(request, env, url);
+    if (path === '/rsc-logo.png' || path === '/favicon.ico') return env.ASSETS.fetch(request); // used by the sign-in page
+    if (path === '/auth/login') return login(env, url);
+    if (path === '/auth/callback') return await callback(request, env, url, ctx);
+    if (path === '/auth/logout') return logout(url);
+
+    const user = await readSession(request, env);
+    // Maintenance mode: everyone except Admins gets a "back soon" answer. Nothing is deleted; this only closes the door.
+    if (user && APP.maintenance && !isAdmin(user) && await maintenanceOn(env)) {
+      if (path.startsWith('/api/')) return json({ error: 'maintenance', postError: MAINT_TEXT, message: MAINT_TEXT }, 503);
+      return html(messagePage('Back soon', '<p>' + esc(APP.title) + ' is down for a short update. Nothing has been lost; your Trade Board entries are safe.</p><p class="small">Please check back in a little while.</p>'), 503);
+    }
+    if (path.startsWith('/api/')) {
+      if (!user) return json({ error: 'auth', message: 'Your sign-in has expired. Sign in again.' }, 401);
+      if (path === '/api/data') return await apiData(request, env, url, ctx, user);
+      if (path === '/api/access' && APP.tmRoles) return json({ tm: tmAllowed(env, user) });
+      if (path === '/api/season' && env.SEASON_URL) return await apiSeason(env);
+      if (path === '/api/post' && APP.allowPost) return await apiPost(request, env, url, user, ctx);
+      if (path === '/api/me' && APP.identity) return await apiMe(request, env, user);
+      return json({ error: 'not_found' }, 404);
+    }
+    if (!user) return html(signInPage(url.pathname + url.search), 401);
+    return withUser(await env.ASSETS.fetch(stripConditional(request)), user);
+  } catch (err) {
+    console.error('worker error', err && err.stack || err);
+    if (path.startsWith('/api/')) return json({ error: 'server', postError: 'Server error, try again in a minute.', message: 'Server error, try again in a minute.' }, 500);
+    return html(messagePage('Something went wrong', '<p>Please try again in a minute.</p>'), 500);
+  }
+}
+
+// ---- Security headers (every response) ---------------------------------------------------------
+// A second lock behind the pages' own escaping. On HTML the browser runs only scripts that carry this response's
+// nonce (stamped below on every <script> the Worker sends, including the static pages), connects only to this
+// site, submits forms only here, and refuses to be framed. Inline styles stay allowed (pages use style="").
+// The nonce is new on every response, so HTML never keeps an ETag / Last-Modified and is never served as a 304.
+function csp(nonce) {
+  return [
+    "default-src 'self'", "script-src 'self' 'nonce-" + nonce + "'", "style-src 'self' 'unsafe-inline'",
+    "img-src 'self'", "connect-src 'self'", "font-src 'self'", "object-src 'none'", "base-uri 'none'",
+    "form-action 'self'", "frame-ancestors 'none'"
+  ].join('; ');
+}
+function secure(res, nonce) {
+  const isHtml = (res.headers.get('Content-Type') || '').includes('text/html');
+  let out = isHtml ? new HTMLRewriter().on('script', { element(el) { el.setAttribute('nonce', nonce); } }).transform(res) : res;
+  out = new Response(out.body, out);
+  const h = out.headers;
+  h.set('X-Content-Type-Options', 'nosniff');
+  h.set('Referrer-Policy', 'same-origin');
+  h.set('X-Frame-Options', 'DENY');
+  if (isHtml) {
+    h.set('Content-Security-Policy', csp(nonce));
+    h.delete('ETag');
+    h.delete('Last-Modified');
+    if (!/no-store/.test(h.get('Cache-Control') || '')) h.set('Cache-Control', 'no-store');
+  }
+  return out;
+}
 
 // ---- Demo ------------------------------------------------------------------
 // /demo/<file> serves /<file>. The page sees /demo in its path and switches to demo mode;
@@ -91,7 +124,7 @@ export default {
 function demoAsset(request, env, url) {
   const u = new URL(url);
   u.pathname = url.pathname.slice('/demo'.length).replace(/\/index\.html$/, '/');
-  return env.ASSETS.fetch(new Request(u, request));
+  return env.ASSETS.fetch(new Request(u, stripConditional(request)));
 }
 
 // ---- Discord OAuth ---------------------------------------------------------

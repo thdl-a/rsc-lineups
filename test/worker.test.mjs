@@ -18,16 +18,22 @@ const DENIED_ROLE = /deniedNoRole:\s*'([^']*)'/.exec(SRC)[1];   // the message t
 
 // ---- Workers runtime stubs -------------------------------------------------------
 globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
-// Minimal HTMLRewriter: fills empty <span id="..."></span> elements (selector '#id') the way the real one would.
+// Minimal HTMLRewriter: fills empty <span id="..."></span> elements (selector '#id') and sets attributes on every
+// <script> (selector 'script') the way the real one would.
 globalThis.HTMLRewriter = class {
   constructor() { this.handlers = []; }
-  on(selector, handler) { this.handlers.push([selector.slice(1), handler]); return this; }
+  on(selector, handler) { this.handlers.push([selector, handler]); return this; }
   transform(res) {
     const hs = this.handlers;
     const stream = new ReadableStream({
       async start(c) {
         let t = await res.text();
-        for (const [id, h] of hs) {
+        for (const [sel, h] of hs) {
+          if (sel === 'script') {   // the nonce goes on every <script> tag
+            h.element({ setAttribute: (k, v) => { t = t.replace(/<script(?=[\s>])/g, () => '<script ' + k + '="' + v + '"'); } });
+            continue;
+          }
+          const id = sel.slice(1);   // '#who' -> who
           const attrs = [];
           h.element({
             setAttribute: (k, v) => { attrs.push(' ' + k + '="' + v + '"'); },
@@ -52,7 +58,10 @@ const env = {
     fetch: async (req) => {
       const p = new URL(req.url || req).pathname;
       if (p === '/rsc-logo.png') return new Response('png', { headers: { 'Content-Type': 'image/png' } });
-      if (p === '/') return new Response('<html><button id="acctBtn"><span id="who"></span></button><div id="acctMenu"><span id="signout"></span></div>' + p + '</html>', { headers: { 'Content-Type': 'text/html', ETag: '"abc"' } });
+      if (p === '/') {
+        if (req.headers && req.headers.get('If-None-Match')) return new Response(null, { status: 304, headers: { ETag: '"abc"' } });
+        return new Response('<html><head><script>var a=1</script></head><button id="acctBtn"><span id="who"></span></button><div id="acctMenu"><span id="signout"></span></div>' + p + '<script>var b=2</script></html>', { headers: { 'Content-Type': 'text/html', ETag: '"abc"', 'Last-Modified': 'Thu, 26 Nov 2026 10:00:00 GMT' } });
+      }
       return new Response('asset ' + p, { headers: { 'Content-Type': 'application/octet-stream' } });
     }
   }
@@ -549,4 +558,74 @@ test('anyone else with the same name or a similar id is not a developer', async 
   const other = roleIdsOf(await signIn({ roles: ['R1'] }, { userId: '42' }));
   if (ADMIN_ROLE) assert.ok(!other.includes(ADMIN_ROLE));
   assert.ok(!other.includes('TM1'));
+});
+
+// ---- Security headers ----------------------------------------------------------------------------
+function policy(r) { return r.headers.get('Content-Security-Policy') || ''; }
+function nonceOf(r) { const m = /'nonce-([0-9a-f]{32})'/.exec(policy(r)); return m && m[1]; }
+function basics(r, label) {
+  assert.equal(r.headers.get('X-Content-Type-Options'), 'nosniff', label);
+  assert.equal(r.headers.get('Referrer-Policy'), 'same-origin', label);
+  assert.equal(r.headers.get('X-Frame-Options'), 'DENY', label);
+}
+
+test('security headers: signed-in page has a strict policy and every <script> carries its fresh nonce', async () => {
+  const c = await session({ roles: ['R1'] });
+  const r = await go('/', { headers: { Cookie: c } });
+  assert.equal(r.status, 200);
+  basics(r, 'page');
+  const p = policy(r), n = nonceOf(r);
+  assert.ok(n, 'nonce in the policy');
+  for (const d of ["default-src 'self'", "connect-src 'self'", "img-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'"]) assert.ok(p.includes(d), d);
+  assert.doesNotMatch(p, /script-src[^;]*unsafe-inline/);
+  const t = await r.text();
+  const tags = t.match(/<script[^>]*>/g);
+  assert.equal(tags.length, 2);
+  for (const tag of tags) assert.equal(tag, '<script nonce="' + n + '">');
+  assert.equal(r.headers.get('ETag'), null);
+  assert.equal(r.headers.get('Last-Modified'), null);
+  const r2 = await go('/', { headers: { Cookie: c } });
+  assert.notEqual(nonceOf(r2), n, 'a new nonce for every response');
+});
+
+test('security headers: sign-in page script carries the nonce', async () => {
+  const r = await go('/');
+  assert.equal(r.status, 401);
+  basics(r, 'sign-in');
+  const n = nonceOf(r);
+  assert.ok(n);
+  const t = await r.text();
+  assert.match(t, new RegExp('<script nonce="' + n + '">'));
+  assert.doesNotMatch(t, /<script>/);
+});
+
+test('security headers: demo page is never a 304 (its nonce must match the new policy) and is not stored', async () => {
+  const r = await go('/demo/', { headers: { 'If-None-Match': '"abc"' } });
+  assert.equal(r.status, 200);
+  basics(r, 'demo');
+  const n = nonceOf(r);
+  assert.ok(n);
+  assert.match(await r.text(), new RegExp('<script nonce="' + n + '">var a=1'));
+  assert.equal(r.headers.get('ETag'), null);
+  assert.equal(r.headers.get('Cache-Control'), 'no-store');
+});
+
+test('security headers: API replies, redirects and images get the basic headers but no page policy', async () => {
+  const c = await session({ roles: ['R1'] });
+  scene = { gas: () => new RealResponse(JSON.stringify({ v: 1, tiers: [] })) };
+  for (const [path, opts] of [['/api/data', { headers: { Cookie: c } }], ['/auth/login', {}], ['/rsc-logo.png', {}], ['/auth/logout', {}]]) {
+    const r = await go(path, opts);
+    basics(r, path);
+    assert.equal(policy(r), '', path);
+  }
+});
+
+test('the real pages keep to the policy: no inline event handlers, javascript: links or outside URLs', () => {
+  const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(page, /<[a-z][^>]*\son[a-z]+\s*=/i, 'inline event handler');
+  assert.doesNotMatch(page, /\son(click|load|error|change|input|submit|mouse\w+|key\w+|focus|blur)\s*=\s*\\?["']/i, 'event handler inside a string');
+  assert.doesNotMatch(page, /javascript:/i);
+  assert.doesNotMatch(page, /(src|href|action)\s*=\s*\\?["']\s*(https?:)?\/\//i, 'outside URL');
+  assert.doesNotMatch(page, /\beval\(|new Function\(/);
+  assert.match(page, /<script>/, 'inline scripts get their nonce from the Worker');
 });
