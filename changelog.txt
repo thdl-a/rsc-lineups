@@ -2,6 +2,16 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.5  TIDIER HEADER: ACCOUNT MENU  (11/27/2026)
+======================================================================
+- Your Discord username is now a button at the right end of the header. It opens a small menu with who you
+  are signed in as, the Theme (Auto / Light / Dark, all three shown) and Sign out. Click outside it or press
+  Esc to close it. Sign out is no longer next to Refresh, so it cannot be clicked by mistake.
+- Copy link and Refresh sit next to "Data as of ...".
+- On a phone the header fits on one row under the title: "Data as of" is hidden and Copy link / Refresh
+  show as icons.
+
+======================================================================
 v2.4.2  SIGN OUT BUTTON  (11/27/2026)
 ======================================================================
 - The header now says "Signed in as <your Discord username>" (left of the Theme button), and the "Log out"

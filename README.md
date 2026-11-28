@@ -58,7 +58,7 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 - The title shows the current season, e.g. **• S28**. It comes from the title of the Contracts sheet (`CONTRACTS_ID`), e.g. "S28 RSC 3s Contracts". Only if that title has no season does it fall back to the Draft Board Analyzer's season (its public `?action=season`).
 - **Status pill**: player count. Click it for each tier's min, max, cap and promoted MMR, plus any data notes.
 - **Refresh** re-reads the sheets. The page also refreshes every 5 minutes while in use.
-- **Signed in as** your Discord username shows left of the Theme button, and **Sign out** is the last button on the right.
+- Your Discord username is the last button on the right. It opens a menu with who you are signed in as, the Theme (Auto / Light / Dark) and **Sign out**.
 
 ## How it works
 

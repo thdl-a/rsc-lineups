@@ -399,20 +399,20 @@ function dataResponse(body, cacheState) {
   return new Response(body, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Cache': cacheState } });
 }
 
-// ---- Signed-in pages: "Signed in as <user>" and a Sign out button in the header ----------
-// #who sits left of the Theme button; #signout is the last header button (a GET form, so it needs no script).
+// ---- Signed-in pages: the account menu in the header ----------------------------------------
+// #who is the label of the account button (the Discord username); #signout is the last item of its menu
+// (a GET form, so signing out needs no script). The page builds "Signed in with Discord as <user>" from #who.
 function withUser(res, user) {
   const type = res.headers.get('Content-Type') || '';
   let out = res;
   if (type.includes('text/html')) {
     out = new HTMLRewriter().on('#who', {
       element(el) {
-        el.setAttribute('title', 'Signed in with Discord');
-        el.setInnerContent('Signed in as <b>' + esc(user.u) + '</b>', { html: true });
+        el.setInnerContent(esc(user.u), { html: true });
       }
     }).on('#signout', {
       element(el) {
-        el.setInnerContent('<form action="/auth/logout" method="get"><button type="submit" title="Sign out of ' + esc(APP.title) + '">Sign out</button></form>', { html: true });
+        el.setInnerContent('<form action="/auth/logout" method="get"><button type="submit">Sign out</button></form>', { html: true });
       }
     }).transform(res);
   }

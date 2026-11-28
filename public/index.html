@@ -125,10 +125,27 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
 .sug .none{padding:8px 12px;color:var(--muted);font-size:12px}
 .lock{border:1px dashed var(--warn);background:var(--warnBg);border-radius:6px;padding:8px;margin-top:8px}
 .lock .row input{flex:1;min-width:120px}
-#who{display:inline-flex;gap:4px;align-items:center;white-space:nowrap}
-#who:empty,#signout:empty{display:none}
-#who b{color:var(--headInk)}
-#signout,#signout form{display:contents}
+/* Header pop-ups: the account menu (name, Theme, Sign out) and, on the Trade Hub, who is online. Same in both apps. */
+.pop{position:relative;display:inline-flex}
+.pop[hidden],.menu[hidden]{display:none}
+.menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:230px;max-width:calc(100vw - 20px);background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;font-size:13px;text-align:left}
+.mhead{padding:6px 8px 8px;color:var(--muted);border-bottom:1px solid var(--line);margin-bottom:6px;overflow-wrap:anywhere}
+.mhead b{color:var(--ink)}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 8px}
+header .menu button{background:transparent;color:var(--ink);border-color:transparent}
+header .menu button:hover{background:var(--hover);border-color:transparent}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;padding:2px;gap:2px}
+header .seg button{padding:3px 9px;border-radius:5px;font-size:12px}
+header .seg button[aria-pressed="true"]{background:var(--accent);color:var(--onAccent);font-weight:600}
+#signout:empty{display:none}
+#signout form{display:block;margin:6px 0 0;padding-top:6px;border-top:1px solid var(--line)}
+header #signout button{width:100%;text-align:left;padding:7px 8px}
+#acctBtn{display:inline-flex;align-items:center;gap:6px;max-width:220px}
+#who{font-weight:700;color:var(--headInk);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#who:empty:before{content:'Account';font-weight:400;color:#f2f2f2}
+.caret{font-size:10px;opacity:.8}
+#updated:empty{display:none}
+@media (max-width:560px){#updated{display:none}.lbl{display:none}}
 .demo-badge{background:var(--accent);color:#111;border-radius:999px;padding:2px 10px;font-weight:700;font-size:12px}
 </style>
 </head>
@@ -137,12 +154,17 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;backgrou
   <h1><a id="home" href="./" title="Start over"><img class="brand-logo" src="rsc-logo.png" alt="RSC">RSC Lineups & Tryouts</a><span id="season"></span></h1>
   <div class="meta">
     <button id="statusPill" class="pill warn" title="Data checks">Loading…</button>
-    <span id="updated">–</span>
-    <button id="linkBtn" title="Copy a link that opens this exact setup">🔗 Copy link</button>
-    <span id="who"></span>
-    <button id="themeBtn" title="Theme">Theme: Auto</button>
-    <button id="refreshBtn" title="Re-read the sheets">↻ Refresh</button>
-    <span id="signout"></span>
+    <span id="updated"></span>
+    <button id="linkBtn" title="Copy a link that opens this exact setup">🔗 <span class="lbl">Copy link</span></button>
+    <button id="refreshBtn" title="Re-read the sheets">↻ <span class="lbl">Refresh</span></button>
+    <div class="pop" id="acctWrap">
+      <button id="acctBtn" data-pop aria-controls="acctMenu" aria-expanded="false" title="Account and theme"><span id="who"></span><span class="caret" aria-hidden="true">▾</span></button>
+      <div class="menu" id="acctMenu" hidden>
+        <div class="mhead" id="acctHead"></div>
+        <div class="mrow"><span>Theme</span><span class="seg" role="group" aria-label="Theme"><button type="button" data-theme-set="auto" aria-pressed="false">Auto</button><button type="button" data-theme-set="light" aria-pressed="false">Light</button><button type="button" data-theme-set="dark" aria-pressed="false">Dark</button></span></div>
+        <span id="signout"></span>
+      </div>
+    </div>
   </div>
 </header>
 <div id="checks" class="hidden"></div>
@@ -317,7 +339,7 @@ if (['auto','light','dark'].indexOf(THEME)<0) THEME = 'auto';
 function applyTheme(){
   var dark = THEME==='dark' || (THEME==='auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-  var b = $('themeBtn'); if (b) { b.textContent = {auto:'Theme: Auto', light:'Theme: Light', dark:'Theme: Dark'}[THEME]; b.title = 'Theme: '+THEME+' (click to change)'; }
+  document.querySelectorAll('[data-theme-set]').forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-set')===THEME)); });
 }
 try {
   var mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -396,7 +418,7 @@ function load(src, force){
     else { $('checks').className=''; $('checks').innerHTML = '<div class="banner bad">Refresh failed: '+msg+'. Showing data from '+timeStr(DATA.c.builtAt)+'.</div>'; }
   });
 }
-function setBusy(){ var b=$('refreshBtn'), busy=loading.c||loading.tm; b.disabled=busy; b.textContent=busy?'↻ Loading…':'↻ Refresh'; }
+function setBusy(){ var b=$('refreshBtn'), busy=loading.c||loading.tm; b.disabled=busy; b.innerHTML='↻ <span class="lbl">'+(busy?'Loading…':'Refresh')+'</span>'; }
 function fixState(){
   if (DATA.c && S.L.t && DATA.c.tierNames.indexOf(S.L.t)<0) S.L.t='';
   var td = DATA[S.T.src];
@@ -824,7 +846,7 @@ document.addEventListener('click', function(e){
   }
   var el = e.target.closest('button'); if (!el) return;
   if (el.dataset.tab) { S.tab = el.dataset.tab; renderTabs(); render(); return; }
-  if (el.id==='themeBtn') { THEME = THEME==='auto' ? 'light' : THEME==='light' ? 'dark' : 'auto'; try { localStorage.setItem('rsclt_theme', THEME); } catch(x) {} applyTheme(); return; }
+  if (el.dataset.themeSet) { THEME = el.dataset.themeSet; try { localStorage.setItem('rsclt_theme', THEME); } catch(x) {} applyTheme(); return; }
   if (el.id==='refreshBtn') { load('c', true); if (DATA.tm || (S.T.src==='tm' && TM_KEY)) load('tm', true); return; }
   if (el.id==='statusPill') { if (DATA.c) { showChecks=!showChecks; renderChecks(); } return; }
   if (el.id==='linkBtn') { persist(); copyText(location.href); return; }
@@ -863,6 +885,40 @@ if (S.T.src==='tm' && TM_KEY) load('tm');
 if (!DEMO) fetch('/api/access', {cache:'no-store'}).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
   if (j && j.tm === true) { TM_ROLE = true; if (S.T.src==='tm' && !DATA.tm) load('tm'); render(); }
 }).catch(function(){});
+})();
+</script>
+<script>
+// ---- Header pop-ups (same code in both apps) --------------------------------------------------
+// A [data-pop] button opens the panel named in its aria-controls; a click outside it or Escape closes it.
+// The account panel's first line is built from #who (filled by the Worker) with textContent, never as HTML.
+(function(){
+  var open = null;
+  function opener(m){ return document.querySelector('[data-pop][aria-controls="'+m.id+'"]'); }
+  function close(refocus){
+    if (!open) return;
+    var b = opener(open); open.hidden = true; open = null;
+    if (b) { b.setAttribute('aria-expanded', 'false'); if (refocus) b.focus(); }
+  }
+  function fillHead(){
+    var head = document.getElementById('acctHead'), who = document.getElementById('who');
+    if (!head || !who) return;
+    head.textContent = '';
+    var badge = who.querySelector('.demo-badge');
+    if (badge) { head.textContent = badge.title || 'Demo'; return; }
+    head.appendChild(document.createTextNode('Signed in with Discord as '));
+    var b = document.createElement('b'); b.textContent = who.textContent; head.appendChild(b);
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-pop]');
+    if (b) {
+      var m = document.getElementById(b.getAttribute('aria-controls')), was = open === m;
+      close(false);
+      if (m && !was) { if (m.id === 'acctMenu') fillHead(); m.hidden = false; b.setAttribute('aria-expanded', 'true'); open = m; }
+      return;
+    }
+    if (open && !open.contains(e.target)) close(false);
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && open) close(true); });
 })();
 </script>
 </body>

@@ -52,7 +52,7 @@ const env = {
     fetch: async (req) => {
       const p = new URL(req.url || req).pathname;
       if (p === '/rsc-logo.png') return new Response('png', { headers: { 'Content-Type': 'image/png' } });
-      if (p === '/') return new Response('<html><span id="who"></span><button id="themeBtn"></button><span id="signout"></span>' + p + '</html>', { headers: { 'Content-Type': 'text/html', ETag: '"abc"' } });
+      if (p === '/') return new Response('<html><button id="acctBtn"><span id="who"></span></button><div id="acctMenu"><span id="signout"></span></div>' + p + '</html>', { headers: { 'Content-Type': 'text/html', ETag: '"abc"' } });
       return new Response('asset ' + p, { headers: { 'Content-Type': 'application/octet-stream' } });
     }
   }
@@ -194,13 +194,13 @@ test('callback returns to the page (and #hash) the visitor started on, never off
   }
 });
 
-test('signed in: page says "Signed in as <user>" (escaped, bold) and has a Sign out button, never 304', async () => {
+test('signed in: the account button shows the username (escaped) and its menu has Sign out, never 304', async () => {
   const c = await session({ roles: ['R1'] }, { username: 'a<b>' });
   const r = await go('/', { headers: { Cookie: c, 'If-None-Match': '"abc"' } });
   assert.equal(r.status, 200);
   const t = await r.text();
-  assert.match(t, /<span id="who" title="Signed in with Discord">Signed in as <b>a&lt;b&gt;<\/b><\/span><button id="themeBtn">/);
-  assert.match(t, /<span id="signout"><form action="\/auth\/logout" method="get"><button type="submit" title="Sign out of [^"]+">Sign out<\/button><\/form><\/span>/);
+  assert.match(t, /<button id="acctBtn"><span id="who">a&lt;b&gt;<\/span><\/button>/);
+  assert.match(t, /<div id="acctMenu"><span id="signout"><form action="\/auth\/logout" method="get"><button type="submit">Sign out<\/button><\/form><\/span><\/div>/);
   assert.doesNotMatch(t, /Log out/);
   assert.equal(r.headers.get('Cache-Control'), 'private, no-store');
   assert.equal(r.headers.get('ETag'), null);
