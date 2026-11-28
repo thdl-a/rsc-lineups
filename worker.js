@@ -205,10 +205,16 @@ function logout(url) {
   return redirect(url.origin + '/', [cookie(SESSION_COOKIE, '', 0)]);
 }
 
-// Only same-site paths, never back into /auth/.
+// Only same-site paths, never back into /auth/. Control characters, spaces and backslashes are refused outright:
+// browsers drop tabs and newlines from a URL and read a backslash as "/", so "/<tab>/evil.example" would leave the
+// site. The rest is resolved against a dummy origin and must stay on it; the normalized path is returned, so
+// "/x/../auth/" is caught as well.
 function safeNext(n) {
-  if (typeof n !== 'string' || n.length > 2000 || n[0] !== '/' || n[1] === '/' || n[1] === '\\' || n.startsWith('/auth/')) return '/';
-  return n;
+  if (typeof n !== 'string' || n.length > 2000 || n[0] !== '/' || /[\u0000- \u007f\\]/.test(n)) return '/';
+  let u;
+  try { u = new URL(n, 'https://next.invalid'); } catch (e) { return '/'; }
+  if (u.origin !== 'https://next.invalid' || u.pathname.startsWith('/auth/')) return '/';
+  return u.pathname + u.search + u.hash;
 }
 
 // ---- Session cookie ----------------------------------------------------------

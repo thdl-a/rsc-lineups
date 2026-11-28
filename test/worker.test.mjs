@@ -173,9 +173,17 @@ test('matrix: in server with any one of the Management roles', async () => {
 test('callback returns to the page (and #hash) the visitor started on, never off-site', async () => {
   const r = await signIn({ roles: ['R1'] }, { next: '/?x=1#c=L_abc' });
   assert.equal(r.headers.get('Location'), '/?x=1#c=L_abc');
-  for (const evil of ['//evil.example/', 'https://evil.example/', '/\\evil.example', '/auth/logout']) {
+  for (const evil of ['//evil.example/', 'https://evil.example/', '/\\evil.example', '/auth/logout',
+    '/\t/evil.example/', '/\n/evil.example/', '/\r/evil.example/', '/ /evil.example/', '/\\/evil.example/',
+    '/x/\\evil.example', '/x/../auth/logout', '/%2e%2e/auth/logout']) {
     const e = await signIn({ roles: ['R1'] }, { next: evil });
-    assert.equal(e.headers.get('Location'), '/', evil);
+    assert.equal(e.status, 302, JSON.stringify(evil));
+    assert.equal(e.headers.get('Location'), '/', JSON.stringify(evil));
+  }
+  // what a browser would do with the Location: it must always stay on this site
+  for (const ok of ['/', '/demo/', '/?tab=tb', '/#c=T_Elite', '/a%20b']) {
+    const r2 = await signIn({ roles: ['R1'] }, { next: ok });
+    assert.equal(new URL(r2.headers.get('Location'), 'https://site.example').origin, 'https://site.example', ok);
   }
 });
 

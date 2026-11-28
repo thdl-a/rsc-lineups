@@ -2,6 +2,13 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.4.1  SIGN-IN SECURITY FIX  (11/27/2026)
+======================================================================
+- After signing in, the site only ever sends you back to a page on this site. A crafted sign-in link
+  (with a hidden tab character) could send people to another website after Discord approved the sign-in.
+  Nothing changes for normal use, and nobody has to sign in again.
+
+======================================================================
 v2.4  TIER MAKER OPENS BY ROLE  (11/27/2026)
 ======================================================================
 - Admins, General Managers and Assistant GMs open the Tier Maker without the passcode when signed in.
