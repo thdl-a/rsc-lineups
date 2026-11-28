@@ -178,6 +178,7 @@ var AUTO_MS = 300000, IDLE_MS = 1800000;
 // ---------- schedules (same as the template's Schedules tab) ----------
 // Lineups: every 3-player lineup, in the template's order. Digits = player slots.
 var LINEUP = {
+  4:'123 124 134 234',
   5:'135 234 125 345 124 245 134 235 123 145',
   6:'123 456 345 126 235 146 125 346 135 246 124 356 245 136 156 234 256 134 145 236',
   7:'123 456 127 345 167 234 567 124 356 247 135 267 145 367 245 136 257 346 157 246 357 146 237 156 347 256 147 236 457 126 134 235 467 125 137'
@@ -494,7 +495,7 @@ function renderL(){
     tierBox('L','c')+
   '</div></div>';
   // players
-  h += '<div class="box"><h3>Players <span class="note">(5–7)</span></h3><div class="phead"><span></span><span>Player</span><span title="True MMR">Base</span><span title="Effective MMR: what a promoted player counts as in the selected tier">Eff.</span><span>Played</span></div>';
+  h += '<div class="box"><h3>Players <span class="note">(4–7)</span></h3><div class="phead"><span></span><span>Player</span><span title="True MMR">Base</span><span title="Effective MMR: what a promoted player counts as in the selected tier">Eff.</span><span>Played</span></div>';
   for (var i=1;i<=SLOTS;i++){
     var nm = S.L.p[i-1].trim(), r = nm && S.L.m ? mmr('c', S.L.t, nm) : null, known = !nm || d.by[nm];
     var c = nm ? (counts[i]||0) : '';
@@ -507,7 +508,7 @@ function renderL(){
   h += helpL() + '</div><div>';
 
   // games
-  if (!G.games.length) h += '<div class="banner warn">Enter 5, 6 or 7 players to see every lineup'+(G.n?' ('+G.n+' entered)':'')+'.</div>';
+  if (!G.games.length) h += '<div class="banner warn">Enter 4, 5, 6 or 7 players to see every lineup'+(G.n?' ('+G.n+' entered)':'')+'.</div>';
   else {
     var fit = G.games.filter(function(g){ return g.room!=null && roomClass(g.room,t)!=='badc'; }).length;
     var played = G.games.filter(function(g){ return g.played; }).length;
@@ -525,7 +526,7 @@ function renderL(){
 }
 function helpL(){
   return '<details class="help"><summary>READ THIS BEFORE YOU DM</summary><ul>'+
-    '<li>Pick 5, 6 or 7 players and the tier. Every 3-player lineup fills in automatically.</li>'+
+    '<li>Pick 4, 5, 6 or 7 players and the tier. Every 3-player lineup fills in automatically.</li>'+
     '<li>Player MMR is their base MMR, unless they come from a lower tier. Promoted players (amber) count at the highest MMR in the selected tier\'s second-to-last Keeper round.</li>'+
     '<li>Total = the 3 players. Room for 4th = the highest MMR 4th player that still fits cap with that lineup.</li>'+
     '<li><span class="ok">Green</span>: a tier max 4th still fits. <span class="bad">Red</span>: won\'t fit cap even with a tier min 4th.</li>'+

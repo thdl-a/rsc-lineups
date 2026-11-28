@@ -2,7 +2,7 @@
 
 A web page for RSC 3s GMs and management to:
 
-- **Lineups**: list every 3-player lineup for a 5–7 player roster and check each one against the tier's MMR cap.
+- **Lineups**: list every 3-player lineup for a 4–7 player roster and check each one against the tier's MMR cap.
 - **Tryouts**: run balanced 3v3 rotations for 6–7 players, track who won, and check team MMR.
 
 It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copies to make and no sheets to link. Open the page and go.
@@ -14,7 +14,7 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 
 ### Lineups
 1. Pick the tier. The cap, tier min and tier max appear.
-2. Enter 5, 6 or 7 players. Names autocomplete from Contracts.
+2. Enter 4, 5, 6 or 7 players. Names autocomplete from Contracts.
 3. Every lineup appears with:
    - **Total**: the 3 players' MMR.
    - **Room for 4th**: cap minus the total, i.e. the highest-MMR 4th player that still fits.
