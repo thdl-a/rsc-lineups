@@ -40,7 +40,7 @@ const { default: worker } = await import('../worker.js?' + Date.now());
 const ORIGIN = 'https://app.example';
 const env = {
   DISCORD_CLIENT_ID: 'cid', DISCORD_CLIENT_SECRET: 'csecret', SESSION_SECRET: 'x'.repeat(64),
-  GAS_SECRET: 'gas-key', GAS_URL: 'https://gas.example/exec', SEASON_URL: 'https://season.example/exec', GUILD_ID: 'G1', MGMT_ROLE_IDS: 'R1, R2', TM_ROLE_IDS: 'TM1, TM2',
+  GAS_SECRET: 'gas-key', GAS_URL: 'https://gas.example/exec', SEASON_URL: 'https://season.example/exec', GUILD_ID: 'G1', MGMT_ROLE_IDS: 'R1, R2', TM_ROLE_IDS: 'TM1, TM2', DEV_IDS: '777',
   ASSETS: {
     fetch: async (req) => {
       const p = new URL(req.url || req).pathname;
@@ -59,7 +59,7 @@ globalThis.fetch = async (input, init = {}) => {
   const j = (o, s = 200) => new RealResponse(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
   if (url.endsWith('/oauth2/token')) return scene.tokenFail ? j({ error: 'invalid_grant' }, 400) : j({ access_token: 'tok' });
   if (url.endsWith('/oauth2/token/revoke')) return j({});
-  if (url.endsWith('/users/@me')) return j({ id: '42', username: scene.username || 'tester' });
+  if (url.endsWith('/users/@me')) return j({ id: scene.userId || '42', username: scene.username || 'tester' });
   if (url.endsWith('/users/@me/guilds/G1/member')) return scene.member ? j(scene.member) : j({ message: 'Unknown Guild', code: 10004 }, 404);
   if (url.startsWith('https://season.example')) return scene.season ? scene.season() : j({ season: 'S28' });
   if (url.startsWith('https://gas.example/exec')) {
@@ -79,8 +79,8 @@ async function go(path, opts = {}) {
 const setCookies = (res) => res.headers.getSetCookie();
 const cookieVal = (res, name) => { const c = setCookies(res).find((x) => x.startsWith(name + '=')); return c ? c.split(';')[0].slice(name.length + 1) : null; };
 
-async function signIn(member, { next = '/', username } = {}) {
-  scene = { member, username };
+async function signIn(member, { next = '/', username, userId } = {}) {
+  scene = { member, username, userId };
   const login = await go('/auth/login?next=' + encodeURIComponent(next));
   const state = new URL(login.headers.get('Location')).searchParams.get('state');
   const stateCookie = cookieVal(login, '__Host-rsc_oauth');
@@ -508,4 +508,28 @@ test('Tier Maker by role: a session from before roles were kept must sign in aga
   const sig = createHmac('sha256', env.SESSION_SECRET).update(body).digest('base64url');
   const r = await go('/api/data', { headers: { Cookie: '__Host-rsc_session=' + body + '.' + sig } });
   assert.equal(r.status, 401);
+});
+
+// ---- Developer access (DEV_IDS) ----------------------------------------------------
+const roleIdsOf = (res) => JSON.parse(Buffer.from(cookieVal(res, '__Host-rsc_session').split('.')[0], 'base64url').toString()).r;
+
+test('developer id: gets in outside the server, holds the Admin role and the Tier Maker roles', async () => {
+  const res = await signIn(null, { userId: '777' });
+  assert.equal(res.status, 302);
+  const r = roleIdsOf(res);
+  if (ADMIN_ROLE) assert.ok(r.includes(ADMIN_ROLE));
+  if (TM_ROLES) assert.ok(r.includes('TM1') && r.includes('TM2'));
+});
+
+test('developer id: keeps their own server roles too', async () => {
+  const r = roleIdsOf(await signIn({ roles: ['R1', 'zz'] }, { userId: '777' }));
+  assert.ok(r.includes('R1') && r.includes('zz'));
+});
+
+test('anyone else with the same name or a similar id is not a developer', async () => {
+  const res = await signIn(null, { userId: '7777', username: 'w.ntr' });
+  assert.equal(res.status, 403);
+  const other = roleIdsOf(await signIn({ roles: ['R1'] }, { userId: '42' }));
+  if (ADMIN_ROLE) assert.ok(!other.includes(ADMIN_ROLE));
+  assert.ok(!other.includes('TM1'));
 });

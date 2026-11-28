@@ -89,6 +89,7 @@ Browser ──► Cloudflare Worker (worker.js) ──key──► Apps Script (
 |---|---|
 | `DISCORD_CLIENT_ID`, `GUILD_ID`, `GAS_URL`, `TM_ROLE_IDS` | `wrangler.jsonc` vars |
 | `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `GAS_SECRET` | Worker secrets (`wrangler secret put NAME`) |
+| `DEV_IDS` | Worker secret (optional): Discord ids of the site's developer(s). They always get in, even outside the server, and hold the Admin role (and the Tier Maker roles in Lineups). The id comes from Discord's own sign-in answer, so it cannot be claimed. Kept as a secret so it is not in the public repo. |
 | `GAS_SECRET`, `TM_KEY`, `CONTRACTS_ID`, `TIER_MAKER_ID` | Apps Script > Project Settings > Script properties |
 
 None of the secrets are in this repo.

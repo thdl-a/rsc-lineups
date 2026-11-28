@@ -11,7 +11,7 @@
 //   everything else  [login] static assets (index.html etc.)
 //
 // Vars (wrangler.jsonc): DISCORD_CLIENT_ID, GUILD_ID, GAS_URL (MGMT_ROLE_IDS only when APP.requireRole)
-// Secrets (wrangler secret put): DISCORD_CLIENT_SECRET, SESSION_SECRET, GAS_SECRET
+// Secrets (wrangler secret put): DISCORD_CLIENT_SECRET, SESSION_SECRET, GAS_SECRET, DEV_IDS (optional: developer Discord ids)
 //
 // The session is an HMAC-signed cookie (Discord id, username, expiry, and role ids when APP.identity). Nothing is stored
 // server-side. Membership and roles are checked at login only, so removing someone's role
@@ -164,15 +164,25 @@ async function callback(request, env, url, ctx) {
   const member = memberRes.ok ? await memberRes.json() : null;
   const name = me.username || me.global_name || String(me.id);
 
-  const denied = !member ? APP.deniedNoServer : (APP.requireRole && !hasRole(member, env.MGMT_ROLE_IDS)) ? APP.deniedNoRole : '';
+  // Developer: Discord ids in the DEV_IDS secret always get in (even outside the server) and hold the Admin role
+  // (plus the Tier Maker roles). The id comes from Discord's own answer to this sign-in, so it cannot be claimed.
+  const dev = isDev(env, me.id);
+  const denied = dev ? '' : !member ? APP.deniedNoServer : (APP.requireRole && !hasRole(member, env.MGMT_ROLE_IDS)) ? APP.deniedNoRole : '';
   if (denied) {
     return html(deniedPage(name, denied, !member), 403, [clearState, cookie(SESSION_COOKIE, '', 0)]);
   }
   const payload = { id: String(me.id), u: name, exp: Date.now() + APP.sessionDays * 86400000 };
-  if (APP.identity || APP.tmRoles) payload.r = (Array.isArray(member.roles) ? member.roles : []).map(String).slice(0, MAX_ROLES);
+  if (APP.identity || APP.tmRoles) {
+    const roles = (member && Array.isArray(member.roles) ? member.roles : []).map(String);
+    const extra = dev ? [APP.adminRoleId, ...String(env.TM_ROLE_IDS || '').split(',').map((s) => s.trim())].filter(Boolean) : [];
+    payload.r = [...new Set([...extra, ...roles])].slice(0, MAX_ROLES);
+  }
   const session = await signSession(env, payload);
   return redirect(next, [clearState, cookie(SESSION_COOKIE, session, APP.sessionDays * 86400)]);
 }
+
+// DEV_IDS (Worker secret, comma separated Discord ids): the developer(s) of the site.
+function isDev(env, id) { return String(env.DEV_IDS || '').split(',').map((s) => s.trim()).filter(Boolean).includes(String(id)); }
 
 // Access passes if the member has ANY of the comma-separated role ids. An empty list lets nobody in.
 function hasRole(member, ids) {
