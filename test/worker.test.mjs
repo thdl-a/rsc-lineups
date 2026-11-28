@@ -599,7 +599,7 @@ test('security headers: sign-in page script carries the nonce', async () => {
   assert.doesNotMatch(t, /<script>/);
 });
 
-test('security headers: demo page is never a 304 (its nonce must match the new policy) and is not stored', async () => {
+test('security headers: demo page is never a 304 (its nonce must match the new policy) and is always fetched fresh', async () => {
   const r = await go('/demo/', { headers: { 'If-None-Match': '"abc"' } });
   assert.equal(r.status, 200);
   basics(r, 'demo');
@@ -607,7 +607,7 @@ test('security headers: demo page is never a 304 (its nonce must match the new p
   assert.ok(n);
   assert.match(await r.text(), new RegExp('<script nonce="' + n + '">var a=1'));
   assert.equal(r.headers.get('ETag'), null);
-  assert.equal(r.headers.get('Cache-Control'), 'no-store');
+  assert.equal(r.headers.get('Cache-Control'), 'no-cache');
 });
 
 test('security headers: API replies, redirects and images get the basic headers but no page policy', async () => {

@@ -94,6 +94,7 @@ async function route(request, env, ctx) {
 // nonce (stamped below on every <script> the Worker sends, including the static pages), connects only to this
 // site, submits forms only here, and refuses to be framed. Inline styles stay allowed (pages use style="").
 // The nonce is new on every response, so HTML never keeps an ETag / Last-Modified and is never served as a 304.
+// Signed-in pages stay 'private, no-store' (set in withUser: they show the user's name); other pages get 'no-cache'.
 function csp(nonce) {
   return [
     "default-src 'self'", "script-src 'self' 'nonce-" + nonce + "'", "style-src 'self' 'unsafe-inline'",
@@ -113,7 +114,7 @@ function secure(res, nonce) {
     h.set('Content-Security-Policy', csp(nonce));
     h.delete('ETag');
     h.delete('Last-Modified');
-    if (!/no-store/.test(h.get('Cache-Control') || '')) h.set('Cache-Control', 'no-store');
+    if (!/no-store/.test(h.get('Cache-Control') || '')) h.set('Cache-Control', 'no-cache');   // never reused unchecked; the Back button still works
   }
   return out;
 }
