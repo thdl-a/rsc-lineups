@@ -52,7 +52,7 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 - **Only show players of the selected tier and below** (Settings, Lineups and Tryouts; Contracts source only): with a tier selected, the list offers only that tier and the tiers under it. Players with no tier listed come last. Turning it on, or changing the tier, takes any entered players above that tier out of their slots (a message names them). Your choice is remembered in your browser and is not part of shared links.
 
 ### Theme
-- The **Theme** button cycles Auto (follows your device), Light and Dark. It is remembered per browser.
+- Click your Discord username (top right) and choose **Auto** (follows your device), **Light** or **Dark**. It is remembered per browser.
 
 ### Header
 - The title shows the current season, e.g. **• S28**. It comes from the title of the Contracts sheet (`CONTRACTS_ID`), e.g. "S28 RSC 3s Contracts". Only if that title has no season does it fall back to the Draft Board Analyzer's season (its public `?action=season`).
