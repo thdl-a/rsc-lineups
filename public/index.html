@@ -160,9 +160,9 @@ var STATE_KEY = DEMO ? 'rsclt_demo' : 'rsclt', PASS_KEY = DEMO ? 'rsclt_demo_key
 // Data goes through the Worker on this site (it adds the Apps Script key and checks the sign-in).
 var API_URL = '/api/data';
 
-// Season label comes from the Draft Board Analyzer (the Worker asks its public ?action=season
-// and caches it) so both apps always show the same season. Falls back to this app's own
-// (Contracts title) season.
+// Season label comes from this app's own Contracts sheet title ("S27 RSC 3s Contracts" -> S27).
+// Only when that title has no season does it fall back to the Draft Board Analyzer's season
+// (the Worker asks its public ?action=season and caches it).
 var DBA_SEASON = '';
 if (!DEMO) try {
   fetch('/api/season').then(function(r){ return r.json(); }).then(function(j){
@@ -430,8 +430,8 @@ function renderHeader(){
   if (d.stale) { pill.className='pill bad'; pill.textContent='Saved copy'; }
   else if (d.issues.length) { pill.className='pill warn'; pill.textContent=d.issues.length+' data note'+(d.issues.length>1?'s':''); }
   else { pill.className='pill ok'; pill.textContent=d.players.length+' players'; }
-  var sea = DBA_SEASON || d.season;
-  $('season').textContent = sea ? ' - '+sea : '';
+  var sea = d.season || DBA_SEASON;
+  $('season').textContent = sea ? ' • '+sea : '';
   $('updated').textContent = 'Data as of '+timeStr(d.builtAt);
   renderChecks();
 }

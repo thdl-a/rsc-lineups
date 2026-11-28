@@ -12,7 +12,7 @@ Both apps need only settings changes each season: no code change, no deploy, not
 4. Optional check: run `testRead` in the editor. It should list 10 tiers for each sheet and end with `Passcode set: yes` and `Worker key set: yes`.
 
 Notes
-- The season label in the header follows the Draft Board's (see below). Nothing to do here.
+- The season label in the header comes from the new Contracts sheet's title (e.g. "S28 RSC 3s Contracts"), so rename the sheet if its title has no season. Only then does it fall back to the Draft Board's label (see below).
 - The Google account that owns the script must be able to open the new sheets.
 - No redeploy. Data shows up within about a minute (**Refresh** forces it).
 - Change `TM_KEY` (same Script Properties screen) only if you want a new Tier Maker passcode.
@@ -29,7 +29,7 @@ Notes
 5. Optional: if the draft layout file's name has no "S##" (like "S29"), type the label in **B3**. It overrides.
 
 Notes
-- The header season comes from the "S##" in the file name linked in B1. Lineups follows within a few minutes.
+- The Trade Hub header season comes from the "S##" in the file name linked in B1. Lineups has its own: the "S##" in the Contracts sheet's title (it only uses this one if its own title has none).
 - Trade Board: the old season's posts stay on the Trade Board tab. Use **Admin > Clear** (Admin role, click twice) at the start of a season to wipe them. Clear removes the Notes as well.
 - No Script Property changes and no redeploy. Data shows up within about 3 minutes (**Refresh** forces it).
 
@@ -48,7 +48,8 @@ When the API pushes renamed franchises (the Franchises tab of the contracts shee
 | Symptom | Likely cause |
 |---|---|
 | "Script Property CONTRACTS_ID / TIER_MAKER_ID / SHEET_ID is not set" | The property is missing or misspelled in Script Properties. |
-| Lineups header shows the old season | `Import!B1` (DBA) still points at the old file, or fill `Import!B3`. |
+| Lineups header shows the old season | The Contracts sheet's title (`CONTRACTS_ID`) still says the old season: rename it or point `CONTRACTS_ID` at the new sheet. |
+| Trade Hub header shows the old season | `Import!B1` still points at the old file, or fill `Import!B3`. |
 | DBA data empty or `#REF!` | Click **Allow access** on Picks Data, Tier Settings and Teams Data. |
 | Tier Maker "Wrong passcode" | `TM_KEY` in the Lineups Script Properties was changed. |
 | Site shows "Apps Script rejected the Worker key" | `GAS_SECRET` differs between the Worker and the Script Properties. |
