@@ -2,6 +2,13 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.4  TIER MAKER OPENS BY ROLE  (11/27/2026)
+======================================================================
+- Admins, General Managers and Assistant GMs open the Tier Maker without the passcode when signed in.
+  Everyone else still uses the passcode. Everyone signs in once more after the update (silent for people who
+  already approved the app) so their roles can be read.
+
+======================================================================
 v2.3  SIGN-IN LASTS 3 DAYS  (11/27/2026)
 ======================================================================
 - A sign-in now lasts 3 days (was 14), the same as the Draft Board. Everyone signs in once more after the

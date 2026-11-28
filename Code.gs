@@ -70,7 +70,7 @@ function doGet(e) {
   try {
     if (!authorized_(p.key)) out = JSON.stringify({ error: 'unauthorized' });
     else if (p.action !== 'data') out = JSON.stringify({ ok: true, msg: 'RSC Lineups & Tryouts data endpoint' });
-    else if (p.src === 'tm') out = tierMakerGate_(p.tmkey, p.force === '1');
+    else if (p.src === 'tm') out = tierMakerGate_(p.tmkey, p.force === '1', p.tmrole === '1');
     else out = getData_('c', p.force === '1');
   } catch (err) {
     out = JSON.stringify({ error: 'server', message: String(err && err.message || err) });
@@ -84,8 +84,11 @@ function authorized_(key) {
   return !!want && !!key && sameText_(String(key), want);
 }
 
-// Tier Maker is only returned with the right passcode (Script property TM_KEY).
-function tierMakerGate_(key, force) {
+// Tier Maker is only returned with the right passcode (Script property TM_KEY), or when the Worker says the
+// member holds an allowed Discord role (tmrole=1). The Worker alone can set that: this code only runs after the
+// shared key (GAS_SECRET) has been checked, and the Worker drops any tmrole the browser sends.
+function tierMakerGate_(key, force, byRole) {
+  if (byRole) return getData_('tm', force);
   const want = PropertiesService.getScriptProperties().getProperty('TM_KEY');
   if (!want) return JSON.stringify({ error: 'no_key_set' });
   const cache = CacheService.getScriptCache();

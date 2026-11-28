@@ -23,7 +23,7 @@ It replaces the "RSC Lineups & Tryouts" Google Sheet template. There are no copi
 4. Tick **Played** after a lineup plays. The row greys out, and the Played column counts each player's games. Amber means that player is behind the others.
 
 ### Tryouts
-1. Choose the **Player source**: Contracts, or Tier Maker 🔒 (management only, needs the passcode).
+1. Choose the **Player source**: Contracts, or Tier Maker 🔒 (management only: Admins, General Managers and Assistant GMs open it automatically when signed in; anyone else needs the passcode).
 2. Pick the tier and enter 6 or 7 players. Any name works (e.g. `P1`); unknown names just have no MMR.
 3. For 7 players, pick a schedule:
    - **7 games**: everyone sits once and teams up with every other player exactly twice.
@@ -83,11 +83,11 @@ Browser ──► Cloudflare Worker (worker.js) ──key──► Apps Script (
 3. On the way back, the Worker checks membership in the RSC server (`GET /users/@me/guilds/{GUILD_ID}/member`). A 200 response means the visitor gets in; a 404 means they are not a member and get "Join the RSC server". The Discord token is revoked right after this check.
 4. The Worker sets an HMAC-signed, `HttpOnly; Secure; SameSite=Lax` cookie holding the Discord id, the username and an expiry 3 days out (`sessionDays` in the `APP` block of `worker.js`). Nothing is stored on the server.
 5. Apps Script answers only when the Worker's shared key (`GAS_SECRET`) matches. A direct call to the `/exec` link without the key returns `{"error":"unauthorized"}`.
-6. The Tier Maker passcode (`TM_KEY`) still applies on top of sign-in. The page sends it as `tmkey`, the Worker passes it through, and Apps Script checks it.
+6. The Tier Maker opens one of two ways. **By role:** the session also keeps the member's Discord role ids; a member with any role in `TM_ROLE_IDS` (Admin, General Manager, Assistant GM) needs no passcode: the Worker tells Apps Script `tmrole=1` (only the Worker can set it; it drops anything the browser sends, and Apps Script honours it only with the shared `GAS_SECRET`). **By passcode:** everyone else enters `TM_KEY`; the page sends it as `tmkey`, the Worker passes it through, and Apps Script checks it. Roles are read at sign-in (every 3 days), so a changed role takes effect at the next sign-in.
 
 | Name | Where |
 |---|---|
-| `DISCORD_CLIENT_ID`, `GUILD_ID`, `GAS_URL` | `wrangler.jsonc` vars |
+| `DISCORD_CLIENT_ID`, `GUILD_ID`, `GAS_URL`, `TM_ROLE_IDS` | `wrangler.jsonc` vars |
 | `DISCORD_CLIENT_SECRET`, `SESSION_SECRET`, `GAS_SECRET` | Worker secrets (`wrangler secret put NAME`) |
 | `GAS_SECRET`, `TM_KEY`, `CONTRACTS_ID`, `TIER_MAKER_ID` | Apps Script > Project Settings > Script properties |
 

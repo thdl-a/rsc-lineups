@@ -216,6 +216,7 @@ var S = {
 };
 var DATA = {c:null, tm:null};
 var TM_KEY = '';
+var TM_ROLE = false;   // true when this member's Discord role opens the Tier Maker without the passcode (/api/access)
 var tmMsg = '', loading = {c:false, tm:false}, lastLoad = 0, lastActivity = Date.now(), showChecks = false;
 
 function merge(t,s){ if (!s||typeof s!=='object') return; for (var k in s) if (t.hasOwnProperty(k)) { if (t[k] && typeof t[k]==='object' && !Array.isArray(t[k]) && k!=='w') merge(t[k],s[k]); else t[k]=s[k]; } }
@@ -343,7 +344,7 @@ function index(raw){
 }
 function apiUrl(src, force){
   var q = [];
-  if (src==='tm') q.push('src=tm', 'tmkey='+encodeURIComponent(TM_KEY));
+  if (src==='tm') { q.push('src=tm'); if (TM_KEY) q.push('tmkey='+encodeURIComponent(TM_KEY)); }
   if (force) q.push('force=1');
   return API_URL + (q.length ? '?'+q.join('&') : '');
 }
@@ -364,7 +365,7 @@ function demoFetch(src){
 }
 function load(src, force){
   if (loading[src]) return;
-  if (src==='tm' && !TM_KEY) return;
+  if (src==='tm' && !TM_KEY && !TM_ROLE) return;
   loading[src] = true; setBusy();
   (DEMO ? demoFetch(src) : fetch(apiUrl(src, force), {cache:'no-store'}).then(apiText)).then(function(text){
     loading[src] = false; setBusy();
@@ -580,10 +581,11 @@ function renderT(){
     tierBox('T',src)+
   '</div>';
   if (src==='tm') {
-    if (!d) h += '<div class="lock"><div class="note" style="margin-bottom:6px">Tier Maker is management only. Enter the passcode.'+(DEMO?' In the demo it is <b>demo</b>.':'')+'</div>'+
+    if (!d && TM_ROLE && !tmMsg) h += '<div class="note" style="margin-top:8px">Unlocking the Tier Maker with your Discord role…</div>';
+    else if (!d) h += '<div class="lock"><div class="note" style="margin-bottom:6px">Tier Maker is management only. Enter the passcode.'+(DEMO?' In the demo it is <b>demo</b>.':'')+'</div>'+
       '<div class="row"><input type="password" id="tmKey" placeholder="Passcode" autocomplete="current-password"><button class="primary" data-act="unlock"'+(loading.tm?' disabled':'')+'>'+(loading.tm?'Checking…':'Unlock')+'</button></div>'+
       (tmMsg?'<div class="pmsg" style="margin:6px 0 0">'+esc(tmMsg)+'</div>':'')+'</div>';
-    else h += '<div class="note" style="margin-top:8px">Tier Maker unlocked (as of '+timeStr(d.builtAt)+'). <button data-act="lock" style="padding:1px 8px;font-size:12px">Lock</button></div>';
+    else h += '<div class="note" style="margin-top:8px">Tier Maker unlocked'+(TM_ROLE?' by your Discord role':'')+' (as of '+timeStr(d.builtAt)+').'+(TM_ROLE?'':' <button data-act="lock" style="padding:1px 8px;font-size:12px">Lock</button>')+'</div>';
   }
   h += '</div>';
 
@@ -791,7 +793,7 @@ document.addEventListener('change', function(e){
   } else if (el.dataset.k) {
     var val = el.type==='checkbox' ? el.checked : el.value;
     setPath(el.dataset.k, val);
-    if (el.dataset.k==='T.src') { S.T.t=''; if (val==='tm' && TM_KEY && !DATA.tm) load('tm'); }
+    if (el.dataset.k==='T.src') { S.T.t=''; if (val==='tm' && (TM_KEY || TM_ROLE) && !DATA.tm) load('tm'); }
     if (el.dataset.k==='L.t' || el.dataset.k==='L.lo') enforceTier('L');
     if (el.dataset.k==='T.t' || el.dataset.k==='T.lo') enforceTier('T');
     render();
@@ -855,6 +857,10 @@ if (DEMO) $('who').innerHTML = '<span class="demo-badge" title="Invented data. N
 renderTabs();
 load('c');
 if (S.T.src==='tm' && TM_KEY) load('tm');
+// A member with an allowed Discord role gets the Tier Maker without the passcode.
+if (!DEMO) fetch('/api/access', {cache:'no-store'}).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+  if (j && j.tm === true) { TM_ROLE = true; if (S.T.src==='tm' && !DATA.tm) load('tm'); render(); }
+}).catch(function(){});
 })();
 </script>
 </body>

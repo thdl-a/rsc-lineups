@@ -7,6 +7,7 @@
 //   /api/data        [login] GET Apps Script ?action=data&key=GAS_SECRET (cached 60 s)
 //   /api/post        [login] POST to Apps Script, adding the key, the Discord id, roles and username (only when APP.allowPost)
 //   /api/me          [login] who the person may post for (Apps Script action 'who'; only when APP.identity)
+//   /api/access      [login] {tm: true} when the member has a role in TM_ROLE_IDS (only when APP.tmRoles)
 //   everything else  [login] static assets (index.html etc.)
 //
 // Vars (wrangler.jsonc): DISCORD_CLIENT_ID, GUILD_ID, GAS_URL (MGMT_ROLE_IDS only when APP.requireRole)
@@ -22,7 +23,8 @@ const APP = {
   title: 'RSC Lineups & Tryouts',
   requireRole: false,               // any member of the RSC server
   allowPost: false,                 // this app only reads
-  identity: false,                  // no role ids in the session, no /api/me
+  identity: false,                  // no /api/me
+  tmRoles: true,                    // keep role ids in the session; members with a TM_ROLE_IDS role open the Tier Maker without the passcode
   passParams: ['force', 'src', 'tmkey'], // src=tm&tmkey=<Tier Maker passcode> is checked by Apps Script
   maintenance: false,               // no maintenance mode in this app
   adminRoleId: '',
@@ -66,7 +68,8 @@ export default {
       }
       if (path.startsWith('/api/')) {
         if (!user) return json({ error: 'auth', message: 'Your sign-in has expired. Sign in again.' }, 401);
-        if (path === '/api/data') return await apiData(request, env, url, ctx);
+        if (path === '/api/data') return await apiData(request, env, url, ctx, user);
+        if (path === '/api/access' && APP.tmRoles) return json({ tm: tmAllowed(env, user) });
         if (path === '/api/season' && env.SEASON_URL) return await apiSeason(env);
         if (path === '/api/post' && APP.allowPost) return await apiPost(request, env, url, user, ctx);
         if (path === '/api/me' && APP.identity) return await apiMe(request, env, user);
@@ -166,7 +169,7 @@ async function callback(request, env, url, ctx) {
     return html(deniedPage(name, denied, !member), 403, [clearState, cookie(SESSION_COOKIE, '', 0)]);
   }
   const payload = { id: String(me.id), u: name, exp: Date.now() + APP.sessionDays * 86400000 };
-  if (APP.identity) payload.r = (Array.isArray(member.roles) ? member.roles : []).map(String).slice(0, MAX_ROLES);
+  if (APP.identity || APP.tmRoles) payload.r = (Array.isArray(member.roles) ? member.roles : []).map(String).slice(0, MAX_ROLES);
   const session = await signSession(env, payload);
   return redirect(next, [clearState, cookie(SESSION_COOKIE, session, APP.sessionDays * 86400)]);
 }
@@ -219,7 +222,7 @@ async function readSession(request, env) {
   if (!body || !sig || !safeEqual(sig, await sign(env.SESSION_SECRET, body))) return null;
   try {
     const s = JSON.parse(new TextDecoder().decode(fromB64url(body)));
-    if (APP.identity && !Array.isArray(s && s.r)) return null; // signed in before roles were kept: sign in again
+    if ((APP.identity || APP.tmRoles) && !Array.isArray(s && s.r)) return null; // signed in before roles were kept: sign in again
     if (!s || !(s.exp > Date.now()) || !s.u) return null;
     // Issued under a longer sessionDays (e.g. before it was shortened): sign in again, so roles are re-read.
     if (s.exp - Date.now() > APP.sessionDays * 86400000 + 300000) return null;
@@ -230,7 +233,7 @@ async function readSession(request, env) {
 // ---- /api/data, /api/post ----------------------------------------------------
 let memCache = null; // {body, at}: per-isolate copy, in front of the Cache API
 
-async function apiData(request, env, url, ctx) {
+async function apiData(request, env, url, ctx, user) {
   if (request.method !== 'GET') return json({ error: 'method' }, 405);
   if (!env.GAS_URL || !env.GAS_SECRET) return json({ error: 'server', message: 'The data endpoint is not set up (GAS_URL / GAS_SECRET).' }, 503);
   const fwd = new URLSearchParams({ action: 'data' });
@@ -238,6 +241,10 @@ async function apiData(request, env, url, ctx) {
     const v = url.searchParams.get(k);
     if (v !== null && v !== '') fwd.set(k, v);
   }
+  // Tier Maker: a member with a role in TM_ROLE_IDS skips the passcode. Only this Worker can set tmrole (it is not in
+  // passParams, so a browser cannot send it); Apps Script accepts it only together with the shared key.
+  fwd.delete('tmrole');
+  if (APP.tmRoles && fwd.get('src') === 'tm' && tmAllowed(env, user)) { fwd.delete('tmkey'); fwd.set('tmrole', '1'); }
   const force = fwd.get('force') === '1';
   const shared = [...fwd.keys()].every((k) => k === 'action' || k === 'force'); // same answer for everyone
   if (shared && !force) {
@@ -295,6 +302,8 @@ async function apiPost(request, env, url, user, ctx) {
 // Maintenance flag, read from Apps Script and remembered for MAINT_CACHE_SECONDS. If it cannot be read the site stays up.
 const MAINT_TEXT = 'The site is down for a short update. Try again in a little while.';
 let maintCache = null; // {on, at}
+// Does this member hold one of the roles in TM_ROLE_IDS (comma separated)? Roles are read at sign-in.
+function tmAllowed(env, user) { return hasRole({ roles: user && user.r }, env.TM_ROLE_IDS); }
 function isAdmin(user) { return !!APP.adminRoleId && Array.isArray(user && user.r) && user.r.indexOf(APP.adminRoleId) >= 0; }
 async function maintenanceOn(env) {
   if (maintCache && Date.now() - maintCache.at < MAINT_CACHE_SECONDS * 1000) return maintCache.on;

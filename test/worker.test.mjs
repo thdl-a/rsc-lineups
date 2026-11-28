@@ -12,6 +12,7 @@ const REQUIRE_ROLE = /requireRole:\s*true/.test(SRC);
 const ALLOW_POST = /allowPost:\s*true/.test(SRC);
 const PASS_SRC = /passParams:[^\n]*'src'/.test(SRC);
 const IDENTITY = /identity:\s*true/.test(SRC);
+const TM_ROLES = /tmRoles:\s*true/.test(SRC);
 const SESSION_DAYS = Number(/sessionDays:\s*(\d+)/.exec(SRC)[1]);
 const DENIED_ROLE = /deniedNoRole:\s*'([^']*)'/.exec(SRC)[1];   // the message this app shows to members without the role
 
@@ -39,7 +40,7 @@ const { default: worker } = await import('../worker.js?' + Date.now());
 const ORIGIN = 'https://app.example';
 const env = {
   DISCORD_CLIENT_ID: 'cid', DISCORD_CLIENT_SECRET: 'csecret', SESSION_SECRET: 'x'.repeat(64),
-  GAS_SECRET: 'gas-key', GAS_URL: 'https://gas.example/exec', SEASON_URL: 'https://season.example/exec', GUILD_ID: 'G1', MGMT_ROLE_IDS: 'R1, R2',
+  GAS_SECRET: 'gas-key', GAS_URL: 'https://gas.example/exec', SEASON_URL: 'https://season.example/exec', GUILD_ID: 'G1', MGMT_ROLE_IDS: 'R1, R2', TM_ROLE_IDS: 'TM1, TM2',
   ASSETS: {
     fetch: async (req) => {
       const p = new URL(req.url || req).pathname;
@@ -452,4 +453,59 @@ test('a session cookie that outlives this app\x27s sessionDays (issued before it
   assert.equal((await go('/', { headers: { Cookie: mk(Date.now() + (SESSION_DAYS + 1) * 86400000) } })).status, 401);
   assert.equal((await go('/', { headers: { Cookie: mk(Date.now() + SESSION_DAYS * 86400000 - 3600000) } })).status, 200);
   assert.equal((await go('/', { headers: { Cookie: mk(Date.now() - 1000) } })).status, 401);
+});
+
+// ---- Tier Maker by role (Lineups) --------------------------------------------------
+const gasCalls = () => calls.filter((x) => x.url.startsWith('https://gas.example/exec')).map((x) => new URL(x.url).searchParams);
+
+test('/api/access does not exist when tmRoles is off', { skip: TM_ROLES }, async () => {
+  const c = await session({ roles: ['R2'] });
+  assert.equal((await go('/api/access', { headers: { Cookie: c } })).status, 404);
+});
+
+test('Tier Maker by role: a member with an allowed role skips the passcode', { skip: !TM_ROLES }, async () => {
+  const c = await session({ roles: ['TM2', 'other'] });
+  assert.deepEqual(await (await go('/api/access', { headers: { Cookie: c } })).json(), { tm: true });
+  calls.length = 0;
+  await go('/api/data?src=tm', { headers: { Cookie: c } });
+  const q = gasCalls().pop();
+  assert.equal(q.get('tmrole'), '1');
+  assert.equal(q.get('tmkey'), null);
+  assert.equal(q.get('key'), 'gas-key');
+  assert.equal(q.get('src'), 'tm');
+});
+
+test('Tier Maker by role: a wrong passcode sent by a role holder is dropped, not forwarded', { skip: !TM_ROLES }, async () => {
+  const c = await session({ roles: ['TM1'] });
+  calls.length = 0;
+  await go('/api/data?src=tm&tmkey=wrong', { headers: { Cookie: c } });
+  const q = gasCalls().pop();
+  assert.equal(q.get('tmrole'), '1');
+  assert.equal(q.get('tmkey'), null);
+});
+
+test('Tier Maker by role: a member without the role cannot forge tmrole and still needs the passcode', { skip: !TM_ROLES }, async () => {
+  const c = await session({ roles: ['R1'] });
+  assert.deepEqual(await (await go('/api/access', { headers: { Cookie: c } })).json(), { tm: false });
+  calls.length = 0;
+  await go('/api/data?src=tm&tmrole=1&tmkey=pass', { headers: { Cookie: c } });
+  const q = gasCalls().pop();
+  assert.equal(q.get('tmrole'), null);
+  assert.equal(q.get('tmkey'), 'pass');
+});
+
+test('Tier Maker by role: contracts data stays shared and carries no tmrole', { skip: !TM_ROLES }, async () => {
+  const c = await session({ roles: ['TM1'] });
+  calls.length = 0;
+  await go('/api/data?force=1&tmrole=1', { headers: { Cookie: c } });
+  const q = gasCalls().pop();
+  assert.equal(q.get('tmrole'), null);
+  assert.equal(q.get('src'), null);
+});
+
+test('Tier Maker by role: a session from before roles were kept must sign in again', { skip: !TM_ROLES }, async () => {
+  const body = Buffer.from(JSON.stringify({ id: '42', u: 'old', exp: Date.now() + 3600000 })).toString('base64url');
+  const sig = createHmac('sha256', env.SESSION_SECRET).update(body).digest('base64url');
+  const r = await go('/api/data', { headers: { Cookie: '__Host-rsc_session=' + body + '.' + sig } });
+  assert.equal(r.status, 401);
 });
