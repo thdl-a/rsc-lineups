@@ -18,15 +18,22 @@ const DENIED_ROLE = /deniedNoRole:\s*'([^']*)'/.exec(SRC)[1];   // the message t
 
 // ---- Workers runtime stubs -------------------------------------------------------
 globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
-// Minimal HTMLRewriter: fills <span id="who"></span> the way the real one would.
+// Minimal HTMLRewriter: fills empty <span id="..."></span> elements (selector '#id') the way the real one would.
 globalThis.HTMLRewriter = class {
-  on(selector, handler) { this.handler = handler; return this; }
+  constructor() { this.handlers = []; }
+  on(selector, handler) { this.handlers.push([selector.slice(1), handler]); return this; }
   transform(res) {
-    const h = this.handler;
+    const hs = this.handlers;
     const stream = new ReadableStream({
       async start(c) {
         let t = await res.text();
-        h.element({ setInnerContent: (v) => { t = t.replace('<span id="who"></span>', '<span id="who">' + v + '</span>'); } });
+        for (const [id, h] of hs) {
+          const attrs = [];
+          h.element({
+            setAttribute: (k, v) => { attrs.push(' ' + k + '="' + v + '"'); },
+            setInnerContent: (v) => { t = t.replace('<span id="' + id + '"></span>', () => '<span id="' + id + '"' + attrs.join('') + '>' + v + '</span>'); }
+          });
+        }
         c.enqueue(new TextEncoder().encode(t)); c.close();
       }
     });
@@ -45,7 +52,7 @@ const env = {
     fetch: async (req) => {
       const p = new URL(req.url || req).pathname;
       if (p === '/rsc-logo.png') return new Response('png', { headers: { 'Content-Type': 'image/png' } });
-      if (p === '/') return new Response('<html><span id="who"></span>' + p + '</html>', { headers: { 'Content-Type': 'text/html', ETag: '"abc"' } });
+      if (p === '/') return new Response('<html><span id="who"></span><button id="themeBtn"></button><span id="signout"></span>' + p + '</html>', { headers: { 'Content-Type': 'text/html', ETag: '"abc"' } });
       return new Response('asset ' + p, { headers: { 'Content-Type': 'application/octet-stream' } });
     }
   }
@@ -187,12 +194,14 @@ test('callback returns to the page (and #hash) the visitor started on, never off
   }
 });
 
-test('signed in: page has the username (escaped) and Log out, never 304', async () => {
+test('signed in: page says "Signed in as <user>" (escaped, bold) and has a Sign out button, never 304', async () => {
   const c = await session({ roles: ['R1'] }, { username: 'a<b>' });
   const r = await go('/', { headers: { Cookie: c, 'If-None-Match': '"abc"' } });
   assert.equal(r.status, 200);
   const t = await r.text();
-  assert.match(t, /<span id="who"><span title="Signed in with Discord">a&lt;b&gt;<\/span><a href="\/auth\/logout">Log out<\/a><\/span>/);
+  assert.match(t, /<span id="who" title="Signed in with Discord">Signed in as <b>a&lt;b&gt;<\/b><\/span><button id="themeBtn">/);
+  assert.match(t, /<span id="signout"><form action="\/auth\/logout" method="get"><button type="submit" title="Sign out of [^"]+">Sign out<\/button><\/form><\/span>/);
+  assert.doesNotMatch(t, /Log out/);
   assert.equal(r.headers.get('Cache-Control'), 'private, no-store');
   assert.equal(r.headers.get('ETag'), null);
 });

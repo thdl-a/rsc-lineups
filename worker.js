@@ -399,14 +399,20 @@ function dataResponse(body, cacheState) {
   return new Response(body, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Cache': cacheState } });
 }
 
-// ---- Signed-in pages: username and Log out in the header -------------------------
+// ---- Signed-in pages: "Signed in as <user>" and a Sign out button in the header ----------
+// #who sits left of the Theme button; #signout is the last header button (a GET form, so it needs no script).
 function withUser(res, user) {
   const type = res.headers.get('Content-Type') || '';
   let out = res;
   if (type.includes('text/html')) {
     out = new HTMLRewriter().on('#who', {
       element(el) {
-        el.setInnerContent('<span title="Signed in with Discord">' + esc(user.u) + '</span><a href="/auth/logout">Log out</a>', { html: true });
+        el.setAttribute('title', 'Signed in with Discord');
+        el.setInnerContent('Signed in as <b>' + esc(user.u) + '</b>', { html: true });
+      }
+    }).on('#signout', {
+      element(el) {
+        el.setInnerContent('<form action="/auth/logout" method="get"><button type="submit" title="Sign out of ' + esc(APP.title) + '">Sign out</button></form>', { html: true });
       }
     }).transform(res);
   }

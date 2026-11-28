@@ -2,6 +2,12 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.4.2  SIGN OUT BUTTON  (11/27/2026)
+======================================================================
+- The header now says "Signed in as <your Discord username>" (left of the Theme button), and the "Log out"
+  link is a "Sign out" button at the right end, styled like the other header buttons.
+
+======================================================================
 v2.4.1  SIGN-IN SECURITY FIX  (11/27/2026)
 ======================================================================
 - After signing in, the site only ever sends you back to a page on this site. A crafted sign-in link
