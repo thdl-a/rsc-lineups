@@ -26,7 +26,7 @@ const APP = {
   passParams: ['force', 'src', 'tmkey'], // src=tm&tmkey=<Tier Maker passcode> is checked by Apps Script
   maintenance: false,               // no maintenance mode in this app
   adminRoleId: '',
-  sessionDays: 14,                   // how long a sign-in lasts; roles are read again at the next sign-in
+  sessionDays: 3,                   // how long a sign-in lasts; roles are read again at the next sign-in
   who: 'Open to members of the RSC Discord server.',
   deniedNoServer: 'You are not in the RSC Discord server.',
   deniedNoRole: '',

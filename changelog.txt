@@ -2,6 +2,12 @@ RSC LINEUPS & TRYOUTS - CHANGE LOG
 What changed, in plain language. Newest first.
 
 ======================================================================
+v2.3  SIGN-IN LASTS 3 DAYS  (11/27/2026)
+======================================================================
+- A sign-in now lasts 3 days (was 14), the same as the Draft Board. Everyone signs in once more after the
+  update (silent for people who already approved the app).
+
+======================================================================
 v2.2  SIGN-IN AND DEMO  (11/26/2026)
 ======================================================================
 - Sign in with Discord. Anyone in the RSC server gets in; others see

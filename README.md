@@ -81,7 +81,7 @@ Browser ──► Cloudflare Worker (worker.js) ──key──► Apps Script (
 1. A visitor without a session gets a "Sign in with Discord" page. A shared `#c=` link survives the sign-in.
 2. **Sign in** goes to Discord OAuth with the scopes `identify guilds.members.read`. No bot is involved, and nothing is posted to Discord.
 3. On the way back, the Worker checks membership in the RSC server (`GET /users/@me/guilds/{GUILD_ID}/member`). A 200 response means the visitor gets in; a 404 means they are not a member and get "Join the RSC server". The Discord token is revoked right after this check.
-4. The Worker sets an HMAC-signed, `HttpOnly; Secure; SameSite=Lax` cookie holding the Discord id, the username and an expiry 14 days out (`sessionDays` in the `APP` block of `worker.js`). Nothing is stored on the server.
+4. The Worker sets an HMAC-signed, `HttpOnly; Secure; SameSite=Lax` cookie holding the Discord id, the username and an expiry 3 days out (`sessionDays` in the `APP` block of `worker.js`). Nothing is stored on the server.
 5. Apps Script answers only when the Worker's shared key (`GAS_SECRET`) matches. A direct call to the `/exec` link without the key returns `{"error":"unauthorized"}`.
 6. The Tier Maker passcode (`TM_KEY`) still applies on top of sign-in. The page sends it as `tmkey`, the Worker passes it through, and Apps Script checks it.
 
